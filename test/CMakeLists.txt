@@ -52,3 +52,8 @@ target_include_directories(reactphysics3d PUBLIC
 target_link_libraries(tests reactphysics3d)
 
 add_test(Test tests)
+
+# Collision filtering regression tests
+add_executable(test_collision_refiltering tests/collision/TestCollisionRefiltering.cpp Test.cpp)
+target_link_libraries(test_collision_refiltering reactphysics3d)
+add_test(CollisionRefiltering test_collision_refiltering)
