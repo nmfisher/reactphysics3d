@@ -259,12 +259,12 @@ jobs:
       - name: Run Unit Tests (Linux / MacOS / Windows MinGW)
         if: ${{ !startsWith(matrix.config.os, 'windows') }}
         shell: bash
-        run: ./build/test/tests
+        run: ctest --test-dir build --build-config ${{ matrix.config.build_type }} --output-on-failure
         
       - name: Run Unit Tests (Windows MSVC)
         if: ${{ startsWith(matrix.config.name, 'Windows / MSVC') }}
         shell: bash
-        run: "./build/test/${{ matrix.config.build_type }}/tests.exe"
+        run: ctest --test-dir build --build-config ${{ matrix.config.build_type }} --output-on-failure
 
       - name: Build Hello World
         if: ${{ !matrix.config.coverage }}
