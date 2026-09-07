@@ -77,7 +77,7 @@ void RigidBody::setType(BodyType type) {
         mWorld.mRigidBodyComponents.setAngularVelocity(mEntity, Vector3::zero());
 
         const Transform& transform = getTransform();
-        mWorld.mRigidBodyComponents.setConstrainedPosition(mEntity, transform.getPosition());
+        mWorld.mRigidBodyComponents.setConstrainedPosition(mEntity, mWorld.mRigidBodyComponents.getCenterOfMassWorld(mEntity));
         mWorld.mRigidBodyComponents.setConstrainedOrientation(mEntity, transform.getOrientation());
     }
 
@@ -339,6 +339,11 @@ void RigidBody::setLocalCenterOfMass(const Vector3& centerOfMass) {
     // Compute the center of mass in world-space coordinates
     mWorld.mRigidBodyComponents.setCenterOfMassWorld(mEntity, mWorld.mTransformComponents.getTransform(mEntity) * centerOfMass);
 
+    // Static bodies are not integrated, so their solver position must be updated here.
+    if (getType() == BodyType::STATIC) {
+        mWorld.mRigidBodyComponents.setConstrainedPosition(mEntity, mWorld.mRigidBodyComponents.getCenterOfMassWorld(mEntity));
+    }
+
     // Update the linear velocity of the center of mass
     Vector3 linearVelocity = mWorld.mRigidBodyComponents.getLinearVelocity(mEntity);
     const Vector3& angularVelocity = mWorld.mRigidBodyComponents.getAngularVelocity(mEntity);
@@ -375,6 +380,11 @@ void RigidBody::updateLocalCenterOfMassFromColliders() {
     // Set the center of mass
     mWorld.mRigidBodyComponents.setCenterOfMassLocal(mEntity, centerOfMassLocal);
     mWorld.mRigidBodyComponents.setCenterOfMassWorld(mEntity, centerOfMassWorld);
+
+    // Static bodies are not integrated, so their solver position must be updated here.
+    if (getType() == BodyType::STATIC) {
+        mWorld.mRigidBodyComponents.setConstrainedPosition(mEntity, mWorld.mRigidBodyComponents.getCenterOfMassWorld(mEntity));
+    }
 
     // Update the linear velocity of the center of mass
     Vector3 linearVelocity = mWorld.mRigidBodyComponents.getLinearVelocity(mEntity);
@@ -557,6 +567,11 @@ void RigidBody::updateMassPropertiesFromColliders() {
     // Set the center of mass
     mWorld.mRigidBodyComponents.setCenterOfMassLocal(mEntity, centerOfMassLocal);
     mWorld.mRigidBodyComponents.setCenterOfMassWorld(mEntity, centerOfMassWorld);
+
+    // Static bodies are not integrated, so their solver position must be updated here.
+    if (getType() == BodyType::STATIC) {
+        mWorld.mRigidBodyComponents.setConstrainedPosition(mEntity, mWorld.mRigidBodyComponents.getCenterOfMassWorld(mEntity));
+    }
 
     // If it is a dynamic body
     const BodyType type = mWorld.mRigidBodyComponents.getBodyType(mEntity);
@@ -851,7 +866,7 @@ void RigidBody::setTransform(const Transform& transform) {
 
     if (getType() == BodyType::STATIC) {
 
-        mWorld.mRigidBodyComponents.setConstrainedPosition(mEntity, transform.getPosition());
+        mWorld.mRigidBodyComponents.setConstrainedPosition(mEntity, mWorld.mRigidBodyComponents.getCenterOfMassWorld(mEntity));
         mWorld.mRigidBodyComponents.setConstrainedOrientation(mEntity, transform.getOrientation());
     }
 

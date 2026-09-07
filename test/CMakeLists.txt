@@ -41,6 +41,11 @@ set (RP3D_TESTS_SOURCES
     "TestSuite.cpp"
 )
 
+# Static center-of-mass regression tests
+add_executable(test_static_center_of_mass tests/engine/TestStaticCenterOfMass.cpp Test.cpp)
+target_link_libraries(test_static_center_of_mass reactphysics3d)
+add_test(StaticCenterOfMass test_static_center_of_mass)
+
 # Create the tests executable
 add_executable(tests ${RP3D_TESTS_HEADERS} ${RP3D_TESTS_SOURCES})
 
