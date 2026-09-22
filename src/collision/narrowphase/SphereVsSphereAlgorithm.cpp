@@ -85,100 +85,118 @@ bool testScalarRange(NarrowPhaseInfoBatch& batch, uint32 index, uint32 end) {
 
 #ifdef RP3D_SPHERE_PAIR_SIMD
 namespace {
-bool testSpherePackets(NarrowPhaseInfoBatch& batch, uint32 index, uint32 end) {
+
+// Consume leading triggers without entering the contact-packet routine. Keeping
+// this loop small avoids contact scratch storage/register pressure for trigger
+// batches, while stopping at the first reporting pair preserves mixed batches.
+bool testTriggerPrefix(NarrowPhaseInfoBatch& batch, uint32& index, uint32 end) {
     bool isCollisionFound = false;
-    using Float4 = detail::SpherePairFloat4;
-    for (; end - index >= 4; index += 4) {
-        // Trigger/mixed-reporting packets have too little contact arithmetic to
-        // amortize packing; retain the scalar path for these common workloads.
-        if (!batch.narrowPhaseInfos[index].reportContacts || !batch.narrowPhaseInfos[index + 1].reportContacts ||
-            !batch.narrowPhaseInfos[index + 2].reportContacts || !batch.narrowPhaseInfos[index + 3].reportContacts) {
-            isCollisionFound |= testScalarRange(batch, index, index + 4);
-            continue;
+    for (; index < end && !batch.narrowPhaseInfos[index].reportContacts; index++) {
+        auto& info = batch.narrowPhaseInfos[index];
+        assert(info.nbContactPoints == 0 && !info.isColliding);
+        const Vector3 betweenCenters = info.shape2ToWorldTransform.getPosition() - info.shape1ToWorldTransform.getPosition();
+        const decimal distanceSquare = betweenCenters.lengthSquare();
+        const decimal radiusSum = static_cast<const SphereShape*>(info.collisionShape1)->getRadius() +
+                                  static_cast<const SphereShape*>(info.collisionShape2)->getRadius();
+        if (distanceSquare < radiusSum * radiusSum && radiusSum - std::sqrt(distanceSquare) > 0) {
+            info.isColliding = true;
+            isCollisionFound = true;
         }
+    }
+    return isCollisionFound;
+}
 
-        Vector3 betweenCenters[4];
-        float radius1[4], radius2[4], radiusSum[4];
-        for (uint32 lane = 0; lane < 4; lane++) {
-            const auto& info = batch.narrowPhaseInfos[index + lane];
-            assert(info.nbContactPoints == 0 && !info.isColliding);
-            betweenCenters[lane] = info.shape2ToWorldTransform.getPosition() - info.shape1ToWorldTransform.getPosition();
-            radius1[lane] = static_cast<const SphereShape*>(info.collisionShape1)->getRadius();
-            radius2[lane] = static_cast<const SphereShape*>(info.collisionShape2)->getRadius();
-            radiusSum[lane] = radius1[lane] + radius2[lane];
-        }
+// Pack only ordinary reporting contacts. Rejected pairs and triggers never pay
+// for vector gathers, and contacts can share a packet across intervening misses.
+struct SphereContactPacket {
+    uint32 count = 0;
+    uint32 indices[4];
+    Vector3 betweenCenters[4];
+    float distanceSquare[4], radius1[4], radius2[4];
 
-        // Lanes are independent pairs, not the coordinates of one vector. The
-        // explicit gathers never read a fourth float from a three-float Vector3.
-        const Float4 x = Float4::set(betweenCenters[0].x, betweenCenters[1].x, betweenCenters[2].x, betweenCenters[3].x);
-        const Float4 y = Float4::set(betweenCenters[0].y, betweenCenters[1].y, betweenCenters[2].y, betweenCenters[3].y);
-        const Float4 z = Float4::set(betweenCenters[0].z, betweenCenters[1].z, betweenCenters[2].z, betweenCenters[3].z);
-        const Float4 distances = (x * x + y * y) + z * z;
-        float distanceSquare[4];
-        distances.store(distanceSquare);
-
-        const Float4 radii = Float4::set(radiusSum[0], radiusSum[1], radiusSum[2], radiusSum[3]);
-        const Float4 radiusSquares = radii * radii;
-        const Float4 tolerance = Float4::set(8 * MACHINE_EPSILON, 8 * MACHINE_EPSILON, 8 * MACHINE_EPSILON, 8 * MACHINE_EPSILON);
-        const Float4 epsilon = Float4::set(MACHINE_EPSILON, MACHINE_EPSILON, MACHINE_EPSILON, MACHINE_EPSILON);
-        const unsigned int boundary = (distances - radiusSquares).abs().lessMask(radiusSquares * tolerance) |
-                                      (distances - epsilon).abs().lessMask(epsilon * tolerance);
-        unsigned int candidates = distances.lessMask(radiusSquares);
-        // Resolve decision boundaries with the original scalar expression:
-        // FMA contraction may otherwise change classification by a rounding bit.
-        for (uint32 lane = 0; lane < 4; lane++) {
-            if ((boundary & (1u << lane)) != 0) {
-                distanceSquare[lane] = betweenCenters[lane].lengthSquare();
-                candidates &= ~(1u << lane);
-                if (distanceSquare[lane] < radiusSum[lane] * radiusSum[lane]) candidates |= 1u << lane;
-            }
-        }
-        if (candidates == 0) continue;
-
-        const Float4 correctedDistances = Float4::set(distanceSquare[0], distanceSquare[1], distanceSquare[2], distanceSquare[3]);
-        float depth[4];
-        (radii - correctedDistances.sqrt()).store(depth);
-
-        // Use wide contact arithmetic for four ordinary reporting contacts.
-        // Exceptional/trigger/sparse packets retain the established scalar path.
-        unsigned int contacts = 0;
-        for (uint32 lane = 0; lane < 4; lane++) {
-            if ((candidates & (1u << lane)) != 0 && depth[lane] > 0 && distanceSquare[lane] > MACHINE_EPSILON &&
-                batch.narrowPhaseInfos[index + lane].reportContacts) contacts |= 1u << lane;
-        }
-        if (contacts == 15) {
+    bool flush(NarrowPhaseInfoBatch& batch) {
+        bool isCollisionFound = false;
+        if (count == 4) {
+            using Float4 = detail::SpherePairFloat4;
             using Vector4 = detail::SpherePairVector4;
+            const Float4 r1 = Float4::set(radius1[0], radius1[1], radius1[2], radius1[3]);
+            const Float4 r2 = Float4::set(radius2[0], radius2[1], radius2[2], radius2[3]);
+            const Float4 distances = Float4::set(distanceSquare[0], distanceSquare[1], distanceSquare[2], distanceSquare[3]);
+            float depth[4];
+            (r1 + r2 - distances.sqrt()).store(depth);
             Vector3 centers1Local[4], centers2Local[4], local1[4], local2[4], normals[4];
             for (uint32 lane = 0; lane < 4; lane++) {
-                const auto& info = batch.narrowPhaseInfos[index + lane];
-                // Retain scalar transform arithmetic: changing its contraction
-                // can amplify cancellation for bodies far from the origin.
+                const auto& info = batch.narrowPhaseInfos[indices[lane]];
+                // Retain scalar transforms: vector contraction can amplify
+                // cancellation for bodies far from the origin.
                 const Transform inverse1 = info.shape1ToWorldTransform.getInverse();
                 const Transform inverse2 = info.shape2ToWorldTransform.getInverse();
                 centers2Local[lane] = inverse1 * info.shape2ToWorldTransform.getPosition();
                 centers1Local[lane] = inverse2 * info.shape1ToWorldTransform.getPosition();
             }
-            (Vector4::gather(centers2Local).unit() * Float4::set(radius1[0], radius1[1], radius1[2], radius1[3])).store(local1);
-            (Vector4::gather(centers1Local).unit() * Float4::set(radius2[0], radius2[1], radius2[2], radius2[3])).store(local2);
+            (Vector4::gather(centers2Local).unit() * r1).store(local1);
+            (Vector4::gather(centers1Local).unit() * r2).store(local2);
             Vector4::gather(betweenCenters).unit().store(normals);
             for (uint32 lane = 0; lane < 4; lane++) {
-                batch.addContactPoint(index + lane, normals[lane], depth[lane], local1[lane], local2[lane]);
-                batch.narrowPhaseInfos[index + lane].isColliding = true;
+                // Squared-distance overlap can still round to zero depth.
+                if (depth[lane] > 0) {
+                    batch.addContactPoint(indices[lane], normals[lane], depth[lane], local1[lane], local2[lane]);
+                    batch.narrowPhaseInfos[indices[lane]].isColliding = true;
+                    isCollisionFound = true;
+                }
             }
-            isCollisionFound = true;
         }
         else {
-            for (uint32 lane = 0; lane < 4; lane++) {
-                // Rounding may produce zero depth despite the squared-distance test.
-                if ((candidates & (1u << lane)) != 0 && depth[lane] > 0) {
-                    reportSphereContact(batch, index + lane, betweenCenters[lane], distanceSquare[lane],
-                                        depth[lane], radius1[lane], radius2[lane]);
+            for (uint32 lane = 0; lane < count; lane++) {
+                const decimal depth = radius1[lane] + radius2[lane] - std::sqrt(distanceSquare[lane]);
+                if (depth > 0) {
+                    reportSphereContact(batch, indices[lane], betweenCenters[lane], distanceSquare[lane],
+                                        depth, radius1[lane], radius2[lane]);
+                    isCollisionFound = true;
+                }
+            }
+        }
+        count = 0;
+        return isCollisionFound;
+    }
+};
+
+bool testSpherePackets(NarrowPhaseInfoBatch& batch, uint32 index, uint32 end) {
+    bool isCollisionFound = false;
+    SphereContactPacket packet;
+    for (; index < end; index++) {
+        const auto& info = batch.narrowPhaseInfos[index];
+        assert(info.nbContactPoints == 0 && !info.isColliding);
+        const Vector3 betweenCenters = info.shape2ToWorldTransform.getPosition() - info.shape1ToWorldTransform.getPosition();
+        // Keep the exact scalar classification expression, including tangency
+        // and the coincident-center threshold, without vector boundary repair.
+        const decimal distanceSquare = betweenCenters.lengthSquare();
+        const decimal radius1 = static_cast<const SphereShape*>(info.collisionShape1)->getRadius();
+        const decimal radius2 = static_cast<const SphereShape*>(info.collisionShape2)->getRadius();
+        const decimal radiusSum = radius1 + radius2;
+        if (distanceSquare < radiusSum * radiusSum) {
+            if (info.reportContacts && distanceSquare > MACHINE_EPSILON) {
+                const uint32 lane = packet.count++;
+                packet.indices[lane] = index;
+                packet.betweenCenters[lane] = betweenCenters;
+                packet.distanceSquare[lane] = distanceSquare;
+                packet.radius1[lane] = radius1;
+                packet.radius2[lane] = radius2;
+                if (packet.count == 4) isCollisionFound |= packet.flush(batch);
+            }
+            else {
+                const decimal depth = radiusSum - std::sqrt(distanceSquare);
+                if (depth > 0) {
+                    // Flush before an exceptional contact to retain pair order.
+                    // Triggers emit no contacts, so they need not break packets.
+                    if (info.reportContacts) isCollisionFound |= packet.flush(batch);
+                    reportSphereContact(batch, index, betweenCenters, distanceSquare, depth, radius1, radius2);
                     isCollisionFound = true;
                 }
             }
         }
     }
-    return testScalarRange(batch, index, end) || isCollisionFound;
+    return packet.flush(batch) || isCollisionFound;
 }
 }
 #endif
@@ -189,7 +207,13 @@ bool SphereVsSphereAlgorithm::testCollision(NarrowPhaseInfoBatch& batch, uint32 
     assert(batchNbItems <= batch.getNbObjects() - batchStartIndex);
     const uint32 end = batchStartIndex + batchNbItems;
 #ifdef RP3D_SPHERE_PAIR_SIMD
-    if (batchNbItems >= 4) return testSpherePackets(batch, batchStartIndex, end);
+    if (batchNbItems >= 4) {
+        uint32 index = batchStartIndex;
+        const bool triggersFound = testTriggerPrefix(batch, index, end);
+        if (index == end) return triggersFound;
+        const bool contactsFound = end - index >= 4 ? testSpherePackets(batch, index, end) : testScalarRange(batch, index, end);
+        return contactsFound || triggersFound;
+    }
 #endif
     return testScalarRange(batch, batchStartIndex, end);
 }

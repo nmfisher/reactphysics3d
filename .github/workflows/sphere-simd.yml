@@ -4,10 +4,11 @@ on: [push, pull_request]
 
 jobs:
   sphere-simd:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-24.04, macos-15, windows-2022]
         simd: ['ON', 'OFF']
         double_precision: ['ON', 'OFF']
     steps:
@@ -19,6 +20,44 @@ jobs:
           -DRP3D_SIMD_ENABLED=${{ matrix.simd }}
           -DRP3D_DOUBLE_PRECISION_ENABLED=${{ matrix.double_precision }}
       - name: Build
-        run: cmake --build build-simd --parallel 2
+        run: cmake --build build-simd --config Release --target tests sphere_world_benchmark --parallel 2
       - name: Test
-        run: ctest --test-dir build-simd --output-on-failure
+        run: ctest --test-dir build-simd -C Release --output-on-failure
+      - name: Smoke test world benchmark
+        if: runner.os != 'Windows'
+        run: ./build-simd/test/sphere_world_benchmark --side 3 --warmup 2 --steps 8 --repeats 1
+      - name: Smoke test world benchmark (Windows)
+        if: runner.os == 'Windows'
+        run: ./build-simd/test/Release/sphere_world_benchmark.exe --side 3 --warmup 2 --steps 8 --repeats 1
+
+  sphere-wasm:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # Compare explicit kernels under identical Wasm target features, and
+        # also test a module with no SIMD instructions required.
+        include:
+          - simd: 'ON'
+            wasm_simd: 'ON'
+          - simd: 'OFF'
+            wasm_simd: 'ON'
+          - simd: 'OFF'
+            wasm_simd: 'OFF'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: emscripten-core/setup-emsdk@v15
+        with:
+          version: '5.0.1'
+      - name: Configure
+        run: >-
+          emcmake cmake -S . -B build-wasm -DCMAKE_BUILD_TYPE=Release
+          -DRP3D_COMPILE_TESTS=ON
+          -DRP3D_SIMD_ENABLED=${{ matrix.simd }}
+          -DRP3D_WASM_SIMD_ENABLED=${{ matrix.wasm_simd }}
+      - name: Build
+        run: cmake --build build-wasm --target tests sphere_world_benchmark --parallel 2
+      - name: Test
+        run: ctest --test-dir build-wasm --output-on-failure
+      - name: Smoke test world benchmark
+        run: node build-wasm/test/sphere_world_benchmark.js --side 3 --warmup 2 --steps 8 --repeats 1

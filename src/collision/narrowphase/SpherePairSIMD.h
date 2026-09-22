@@ -110,27 +110,6 @@ class SpherePairFloat4 {
 #endif
         }
 
-        SpherePairFloat4 abs() const {
-#if defined(RP3D_SPHERE_PAIR_SIMD_WASM)
-            return SpherePairFloat4(wasm_f32x4_abs(value));
-#elif defined(RP3D_SPHERE_PAIR_SIMD_NEON)
-            return SpherePairFloat4(vabsq_f32(value));
-#else
-            return SpherePairFloat4(_mm_andnot_ps(_mm_set1_ps(-0.0f), value));
-#endif
-        }
-
-        unsigned int lessMask(SpherePairFloat4 other) const {
-#if defined(RP3D_SPHERE_PAIR_SIMD_WASM)
-            return wasm_i32x4_bitmask(wasm_f32x4_lt(value, other.value));
-#elif defined(RP3D_SPHERE_PAIR_SIMD_NEON)
-            const uint32_t weights[4] = {1, 2, 4, 8};
-            return vaddvq_u32(vandq_u32(vcltq_f32(value, other.value), vld1q_u32(weights)));
-#else
-            return static_cast<unsigned int>(_mm_movemask_ps(_mm_cmplt_ps(value, other.value)));
-#endif
-        }
-
         // Select without evaluating invalid reciprocal inputs in unused lanes.
         static SpherePairFloat4 selectLess(SpherePairFloat4 a, SpherePairFloat4 b,
                                           SpherePairFloat4 yes, SpherePairFloat4 no) {

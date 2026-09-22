@@ -59,8 +59,12 @@ add_test(NAME Test COMMAND tests)
 add_executable(sphere_sphere_benchmark EXCLUDE_FROM_ALL benchmarks/SphereVsSphereBenchmark.cpp)
 target_link_libraries(sphere_sphere_benchmark reactphysics3d)
 
+add_executable(sphere_world_benchmark EXCLUDE_FROM_ALL benchmarks/SphereWorldBenchmark.cpp)
+target_link_libraries(sphere_world_benchmark reactphysics3d)
+
 if(EMSCRIPTEN)
     # The full suite creates multiple worlds; allow its Wasm heap to grow.
     target_link_libraries(tests -sALLOW_MEMORY_GROWTH=1)
     target_link_libraries(sphere_sphere_benchmark -sALLOW_MEMORY_GROWTH=1)
+    target_link_libraries(sphere_world_benchmark -sALLOW_MEMORY_GROWTH=1)
 endif()

@@ -160,6 +160,22 @@ class TestSphereVsSphereBatch : public Test {
         compareRange(distant, 0, 8);
     }
 
+    void testInterleavedContacts() {
+        // Nonadjacent contacts, trigger prefixes, coincident centers, and tails.
+        // Exercise every reporting mask across multiple packets and subranges.
+        for (uint32 reportingMask = 0; reportingMask < 16; reportingMask++) {
+            SphereBatchFixture fixture;
+            for (uint32 i = 0; i < 37; i++) {
+                const decimal x = i % 7 == 0 ? decimal(0) : i % 3 == 0 ? decimal(3) : decimal(1);
+                const bool report = i >= 5 && (reportingMask & (1u << (i % 4))) != 0;
+                fixture.add(1, 1, Transform::identity(), Transform(Vector3(x, 0, 0), Quaternion::identity()), report);
+            }
+            for (uint32 start = 0; start < 8; start++) {
+                for (uint32 tail = 0; tail < 4; tail++) compareRange(fixture, start, 37 - start - tail);
+            }
+        }
+    }
+
     public:
         explicit TestSphereVsSphereBatch(const std::string& name) : Test(name) {}
         void run() override {
@@ -167,6 +183,7 @@ class TestSphereVsSphereBatch : public Test {
             testPacketsAndBoundaries();
             testLaneMasks();
             testReportingPackets();
+            testInterleavedContacts();
         }
 };
 
