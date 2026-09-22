@@ -1,0 +1,24 @@
+name: Sphere SIMD regression tests
+
+on: [push, pull_request]
+
+jobs:
+  sphere-simd:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        simd: ['ON', 'OFF']
+        double_precision: ['ON', 'OFF']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: >-
+          cmake -S . -B build-simd -DCMAKE_BUILD_TYPE=Release
+          -DRP3D_COMPILE_TESTS=ON
+          -DRP3D_SIMD_ENABLED=${{ matrix.simd }}
+          -DRP3D_DOUBLE_PRECISION_ENABLED=${{ matrix.double_precision }}
+      - name: Build
+        run: cmake --build build-simd --parallel 2
+      - name: Test
+        run: ctest --test-dir build-simd --output-on-failure

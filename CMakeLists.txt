@@ -39,6 +39,8 @@ option(RP3D_PROFILING_ENABLED "Select this if you want to compile for performana
 option(RP3D_GENERATE_DOCUMENTATION "Select this if you want to generate the project documentation" OFF)
 option(RP3D_CODE_COVERAGE_ENABLED "Select this if you need to build for code coverage calculation" OFF)
 option(RP3D_DOUBLE_PRECISION_ENABLED "Select this if you want to compile using double precision floating values" OFF)
+option(RP3D_SIMD_ENABLED "Enable explicit SIMD collision kernels on supported single-precision targets" OFF)
+option(RP3D_WASM_SIMD_ENABLED "Build for WebAssembly runtimes supporting SIMD128" OFF)
 
 # Code Coverage
 if(RP3D_CODE_COVERAGE_ENABLED)
@@ -264,6 +266,18 @@ if(RP3D_COMPILE_LIBRARY)
 	# C++11 compiler features
 	target_compile_features(reactphysics3d PUBLIC cxx_std_17)
 	set_target_properties(reactphysics3d PROPERTIES CXX_EXTENSIONS OFF)
+
+    if(NOT RP3D_SIMD_ENABLED)
+        target_compile_definitions(reactphysics3d PRIVATE RP3D_DISABLE_SIMD)
+    endif()
+    if(RP3D_WASM_SIMD_ENABLED)
+        if(NOT EMSCRIPTEN)
+            message(FATAL_ERROR "RP3D_WASM_SIMD_ENABLED requires an Emscripten toolchain")
+        endif()
+        target_compile_options(reactphysics3d PRIVATE -msimd128)
+        # Propagate the target feature to final links, including LTO consumers.
+        target_link_libraries(reactphysics3d PUBLIC -msimd128)
+    endif()
 
 	# Library headers
 	target_include_directories(reactphysics3d PUBLIC

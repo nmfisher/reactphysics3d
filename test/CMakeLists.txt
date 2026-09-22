@@ -18,6 +18,8 @@ set (RP3D_TESTS_HEADERS
     "tests/collision/TestConvexMesh.h"
     "tests/collision/TestHeightField.h"
     "tests/collision/TestTriangleMesh.h"
+    "tests/collision/TestSphereVsSphereBatch.h"
+    "tests/collision/SphereBatchFixture.h"
     "tests/containers/TestArray.h"
     "tests/containers/TestMap.h"
     "tests/containers/TestSet.h"
@@ -51,4 +53,14 @@ target_include_directories(reactphysics3d PUBLIC
 
 target_link_libraries(tests reactphysics3d)
 
-add_test(Test tests)
+add_test(NAME Test COMMAND tests)
+
+# Build explicitly when measuring the sphere kernel; not part of normal tests.
+add_executable(sphere_sphere_benchmark EXCLUDE_FROM_ALL benchmarks/SphereVsSphereBenchmark.cpp)
+target_link_libraries(sphere_sphere_benchmark reactphysics3d)
+
+if(EMSCRIPTEN)
+    # The full suite creates multiple worlds; allow its Wasm heap to grow.
+    target_link_libraries(tests -sALLOW_MEMORY_GROWTH=1)
+    target_link_libraries(sphere_sphere_benchmark -sALLOW_MEMORY_GROWTH=1)
+endif()
