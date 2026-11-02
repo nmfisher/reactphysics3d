@@ -49,6 +49,7 @@
 #include "tests/containers/TestDeque.h"
 #include "tests/containers/TestStack.h"
 #include "tests/engine/TestRigidBody.h"
+#include "tests/engine/TestRigidBodyReactivation.h"
 #include "tests/utils/TestQuickHull.h"
 
 using namespace reactphysics3d;
@@ -96,6 +97,7 @@ int main() {
     // ---------- Engine tests ---------- //
 
     testSuite.addTest(new TestRigidBody("RigidBody"));
+    testSuite.addTest(new TestRigidBodyReactivation("RigidBodyReactivation"));
 
     // Run the tests
     testSuite.run();
