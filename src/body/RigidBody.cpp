@@ -1187,7 +1187,11 @@ void RigidBody::setIsActive(bool isActive) {
     // If the state does not change
     if (mWorld.mBodyComponents.getIsActive(mEntity) == isActive) return;
 
-    setIsSleeping(!isActive);
+    // Put the body to sleep while it is still active so its components are disabled.
+    if (!isActive) setIsSleeping(true);
 
     Body::setIsActive(isActive);
+
+    // An inactive body cannot be awakened. Activate it before enabling its components.
+    if (isActive) setIsSleeping(false);
 }

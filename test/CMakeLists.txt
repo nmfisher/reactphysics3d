@@ -4,6 +4,11 @@ cmake_minimum_required(VERSION 3.8)
 # Project configuration
 project(TESTS)
 
+# Rigid body activation regression tests
+add_executable(test_rigidbody_reactivation tests/engine/TestRigidBodyReactivation.cpp Test.cpp)
+target_link_libraries(test_rigidbody_reactivation reactphysics3d)
+add_test(RigidBodyReactivation test_rigidbody_reactivation)
+
 # Header files
 set (RP3D_TESTS_HEADERS
     "Test.h"
