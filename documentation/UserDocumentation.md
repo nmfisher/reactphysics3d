@@ -177,6 +177,14 @@ You can find below the different CMake options that you can set before building 
  - **RP3D_DOUBLE_PRECISION_ENABLED** If this variable is **ON**, the library will be compiled with double floating point precision.
 							    Otherwise, the library will be compiled with single precision.
 
+ - **RP3D_SIMD_ENABLED** Enables four-pair sphere collision kernels for single-precision ARM64 NEON, x86 SSE2,
+                           and WebAssembly SIMD builds. Defaults to **OFF** because gains depend on the collision workload.
+                           Double precision and unsupported targets use the scalar implementation.
+
+ - **RP3D_WASM_SIMD_ENABLED** Adds `-msimd128` when building with Emscripten, including the final link requirement.
+                                Defaults to **OFF**. Enable this together with **RP3D_SIMD_ENABLED** for explicit Wasm sphere batches.
+                                See [sphere SIMD configuration and benchmarks](SphereSphereSIMD.md).
+
  - **RP3D_GENERATE_DOCUMENTATION** If this variable is **ON**, the library will be also generate the documentation.
 
 

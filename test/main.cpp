@@ -42,12 +42,14 @@
 #include "tests/collision/TestConvexMesh.h"
 #include "tests/collision/TestTriangleMesh.h"
 #include "tests/collision/TestHeightField.h"
+#include "tests/collision/TestSphereVsSphereBatch.h"
 #include "tests/containers/TestArray.h"
 #include "tests/containers/TestMap.h"
 #include "tests/containers/TestSet.h"
 #include "tests/containers/TestDeque.h"
 #include "tests/containers/TestStack.h"
 #include "tests/engine/TestRigidBody.h"
+#include "tests/engine/TestRigidBodyReactivation.h"
 #include "tests/utils/TestQuickHull.h"
 
 using namespace reactphysics3d;
@@ -86,6 +88,7 @@ int main() {
     testSuite.addTest(new TestConvexMesh("ConvexMesh"));
     testSuite.addTest(new TestTriangleMesh("TriangleMesh"));
     testSuite.addTest(new TestHeightField("HeightField"));
+    testSuite.addTest(new TestSphereVsSphereBatch("SphereVsSphereBatch"));
 
     // ---------- Utils tests ---------- //
 
@@ -94,6 +97,7 @@ int main() {
     // ---------- Engine tests ---------- //
 
     testSuite.addTest(new TestRigidBody("RigidBody"));
+    testSuite.addTest(new TestRigidBodyReactivation("RigidBodyReactivation"));
 
     // Run the tests
     testSuite.run();

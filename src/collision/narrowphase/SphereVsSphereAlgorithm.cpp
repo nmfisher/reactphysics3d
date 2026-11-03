@@ -27,87 +27,193 @@
 #include <reactphysics3d/collision/narrowphase/SphereVsSphereAlgorithm.h>
 #include <reactphysics3d/collision/shapes/SphereShape.h>
 #include <reactphysics3d/collision/narrowphase/NarrowPhaseInfoBatch.h>
+#include "SpherePairSIMD.h"
 
-// We want to use the ReactPhysics3D namespace
-using namespace reactphysics3d;  
+using namespace reactphysics3d;
 
-bool SphereVsSphereAlgorithm::testCollision(NarrowPhaseInfoBatch& narrowPhaseInfoBatch, uint32 batchStartIndex, uint32 batchNbItems, MemoryAllocator& /*memoryAllocator*/) {
+namespace {
 
+// Contact emission is shared by packets and the scalar tail. Keep the existing
+// local-space construction and coincident-center convention, including triggers.
+void reportSphereContact(NarrowPhaseInfoBatch& batch, uint32 index, const Vector3& betweenCenters,
+                         decimal distanceSquare, decimal penetrationDepth, decimal radius1, decimal radius2) {
+    auto& info = batch.narrowPhaseInfos[index];
+    if (info.reportContacts) {
+        const Transform transform1Inverse = info.shape1ToWorldTransform.getInverse();
+        const Transform transform2Inverse = info.shape2ToWorldTransform.getInverse();
+        Vector3 point1, point2, normal;
+        if (distanceSquare > MACHINE_EPSILON) {
+            const Vector3 center2Local = transform1Inverse * info.shape2ToWorldTransform.getPosition();
+            const Vector3 center1Local = transform2Inverse * info.shape1ToWorldTransform.getPosition();
+            point1 = radius1 * center2Local.getUnit();
+            point2 = radius2 * center1Local.getUnit();
+            normal = betweenCenters.getUnit();
+        }
+        else {
+            normal.setAllValues(0, 1, 0);
+            point1 = radius1 * (transform1Inverse.getOrientation() * normal);
+            point2 = radius2 * (transform2Inverse.getOrientation() * normal);
+        }
+        batch.addContactPoint(index, normal, penetrationDepth, point1, point2);
+    }
+    info.isColliding = true;
+}
+
+bool testScalarRange(NarrowPhaseInfoBatch& batch, uint32 index, uint32 end) {
     bool isCollisionFound = false;
-
-    // For each item in the batch
-    for (uint32 batchIndex = batchStartIndex; batchIndex < batchStartIndex + batchNbItems; batchIndex++) {
-
-        assert(narrowPhaseInfoBatch.narrowPhaseInfos[batchIndex].nbContactPoints == 0);
-        assert(!narrowPhaseInfoBatch.narrowPhaseInfos[batchIndex].isColliding);
-
-        // Get the local-space to world-space transforms
-        const Transform& transform1 = narrowPhaseInfoBatch.narrowPhaseInfos[batchIndex].shape1ToWorldTransform;
-        const Transform& transform2 = narrowPhaseInfoBatch.narrowPhaseInfos[batchIndex].shape2ToWorldTransform;
-
-        // Compute the distance between the centers
-        Vector3 vectorBetweenCenters = transform2.getPosition() - transform1.getPosition();
-        decimal squaredDistanceBetweenCenters = vectorBetweenCenters.lengthSquare();
-
-        const SphereShape* sphereShape1 = static_cast<SphereShape*>(narrowPhaseInfoBatch.narrowPhaseInfos[batchIndex].collisionShape1);
-        const SphereShape* sphereShape2 = static_cast<SphereShape*>(narrowPhaseInfoBatch.narrowPhaseInfos[batchIndex].collisionShape2);
-
-        const decimal sphere1Radius = sphereShape1->getRadius();
-        const decimal sphere2Radius = sphereShape2->getRadius();
-
-        // Compute the sum of the radius
-        const decimal sumRadiuses = sphere1Radius + sphere2Radius;
-
-        // Compute the product of the sum of the radius
-        const decimal sumRadiusesProducts = sumRadiuses * sumRadiuses;
-
-        // If the sphere collision shapes intersect
-        if (squaredDistanceBetweenCenters < sumRadiusesProducts) {
-
-            const decimal penetrationDepth = sumRadiuses - std::sqrt(squaredDistanceBetweenCenters);
-
-            // Make sure the penetration depth is not zero (even if the previous condition test was true the penetration depth can still be
-            // zero because of precision issue of the computation at the previous line)
-            if (penetrationDepth > 0) {
-
-                // If we need to report contacts
-                if (narrowPhaseInfoBatch.narrowPhaseInfos[batchIndex].reportContacts) {
-
-                    const Transform transform1Inverse = transform1.getInverse();
-                    const Transform transform2Inverse = transform2.getInverse();
-
-                    Vector3 intersectionOnBody1;
-                    Vector3 intersectionOnBody2;
-                    Vector3 normal;
-
-                    // If the two sphere centers are not at the same position
-                    if (squaredDistanceBetweenCenters > MACHINE_EPSILON) {
-
-                        const Vector3 centerSphere2InBody1LocalSpace = transform1Inverse * transform2.getPosition();
-                        const Vector3 centerSphere1InBody2LocalSpace = transform2Inverse * transform1.getPosition();
-
-                        intersectionOnBody1 = sphere1Radius * centerSphere2InBody1LocalSpace.getUnit();
-                        intersectionOnBody2 = sphere2Radius * centerSphere1InBody2LocalSpace.getUnit();
-                        normal = vectorBetweenCenters.getUnit();
-                    }
-                    else {    // If the sphere centers are at the same position (degenerate case)
-
-                        // Take any contact normal direction
-                        normal.setAllValues(0, 1, 0);
-
-                        intersectionOnBody1 = sphere1Radius * (transform1Inverse.getOrientation() * normal);
-                        intersectionOnBody2 = sphere2Radius * (transform2Inverse.getOrientation() * normal);
-                    }
-
-                    // Create the contact info object
-                    narrowPhaseInfoBatch.addContactPoint(batchIndex, normal, penetrationDepth, intersectionOnBody1, intersectionOnBody2);
-                }
-
-                narrowPhaseInfoBatch.narrowPhaseInfos[batchIndex].isColliding = true;
+    for (; index < end; index++) {
+        const auto& info = batch.narrowPhaseInfos[index];
+        assert(info.nbContactPoints == 0 && !info.isColliding);
+        const Vector3 betweenCenters = info.shape2ToWorldTransform.getPosition() - info.shape1ToWorldTransform.getPosition();
+        const decimal distanceSquare = betweenCenters.lengthSquare();
+        const decimal radius1 = static_cast<const SphereShape*>(info.collisionShape1)->getRadius();
+        const decimal radius2 = static_cast<const SphereShape*>(info.collisionShape2)->getRadius();
+        const decimal radiusSum = radius1 + radius2;
+        if (distanceSquare < radiusSum * radiusSum) {
+            const decimal depth = radiusSum - std::sqrt(distanceSquare);
+            if (depth > 0) {
+                reportSphereContact(batch, index, betweenCenters, distanceSquare, depth, radius1, radius2);
                 isCollisionFound = true;
             }
         }
     }
-
     return isCollisionFound;
+}
+
+
+}
+
+#ifdef RP3D_SPHERE_PAIR_SIMD
+namespace {
+
+// Consume leading triggers without entering the contact-packet routine. Keeping
+// this loop small avoids contact scratch storage/register pressure for trigger
+// batches, while stopping at the first reporting pair preserves mixed batches.
+bool testTriggerPrefix(NarrowPhaseInfoBatch& batch, uint32& index, uint32 end) {
+    bool isCollisionFound = false;
+    for (; index < end && !batch.narrowPhaseInfos[index].reportContacts; index++) {
+        auto& info = batch.narrowPhaseInfos[index];
+        assert(info.nbContactPoints == 0 && !info.isColliding);
+        const Vector3 betweenCenters = info.shape2ToWorldTransform.getPosition() - info.shape1ToWorldTransform.getPosition();
+        const decimal distanceSquare = betweenCenters.lengthSquare();
+        const decimal radiusSum = static_cast<const SphereShape*>(info.collisionShape1)->getRadius() +
+                                  static_cast<const SphereShape*>(info.collisionShape2)->getRadius();
+        if (distanceSquare < radiusSum * radiusSum && radiusSum - std::sqrt(distanceSquare) > 0) {
+            info.isColliding = true;
+            isCollisionFound = true;
+        }
+    }
+    return isCollisionFound;
+}
+
+// Pack only ordinary reporting contacts. Rejected pairs and triggers never pay
+// for vector gathers, and contacts can share a packet across intervening misses.
+struct SphereContactPacket {
+    uint32 count = 0;
+    uint32 indices[4];
+    Vector3 betweenCenters[4];
+    float distanceSquare[4], radius1[4], radius2[4];
+
+    bool flush(NarrowPhaseInfoBatch& batch) {
+        bool isCollisionFound = false;
+        if (count == 4) {
+            using Float4 = detail::SpherePairFloat4;
+            using Vector4 = detail::SpherePairVector4;
+            const Float4 r1 = Float4::set(radius1[0], radius1[1], radius1[2], radius1[3]);
+            const Float4 r2 = Float4::set(radius2[0], radius2[1], radius2[2], radius2[3]);
+            const Float4 distances = Float4::set(distanceSquare[0], distanceSquare[1], distanceSquare[2], distanceSquare[3]);
+            float depth[4];
+            (r1 + r2 - distances.sqrt()).store(depth);
+            Vector3 centers1Local[4], centers2Local[4], local1[4], local2[4], normals[4];
+            for (uint32 lane = 0; lane < 4; lane++) {
+                const auto& info = batch.narrowPhaseInfos[indices[lane]];
+                // Retain scalar transforms: vector contraction can amplify
+                // cancellation for bodies far from the origin.
+                const Transform inverse1 = info.shape1ToWorldTransform.getInverse();
+                const Transform inverse2 = info.shape2ToWorldTransform.getInverse();
+                centers2Local[lane] = inverse1 * info.shape2ToWorldTransform.getPosition();
+                centers1Local[lane] = inverse2 * info.shape1ToWorldTransform.getPosition();
+            }
+            (Vector4::gather(centers2Local).unit() * r1).store(local1);
+            (Vector4::gather(centers1Local).unit() * r2).store(local2);
+            Vector4::gather(betweenCenters).unit().store(normals);
+            for (uint32 lane = 0; lane < 4; lane++) {
+                // Squared-distance overlap can still round to zero depth.
+                if (depth[lane] > 0) {
+                    batch.addContactPoint(indices[lane], normals[lane], depth[lane], local1[lane], local2[lane]);
+                    batch.narrowPhaseInfos[indices[lane]].isColliding = true;
+                    isCollisionFound = true;
+                }
+            }
+        }
+        else {
+            for (uint32 lane = 0; lane < count; lane++) {
+                const decimal depth = radius1[lane] + radius2[lane] - std::sqrt(distanceSquare[lane]);
+                if (depth > 0) {
+                    reportSphereContact(batch, indices[lane], betweenCenters[lane], distanceSquare[lane],
+                                        depth, radius1[lane], radius2[lane]);
+                    isCollisionFound = true;
+                }
+            }
+        }
+        count = 0;
+        return isCollisionFound;
+    }
+};
+
+bool testSpherePackets(NarrowPhaseInfoBatch& batch, uint32 index, uint32 end) {
+    bool isCollisionFound = false;
+    SphereContactPacket packet;
+    for (; index < end; index++) {
+        const auto& info = batch.narrowPhaseInfos[index];
+        assert(info.nbContactPoints == 0 && !info.isColliding);
+        const Vector3 betweenCenters = info.shape2ToWorldTransform.getPosition() - info.shape1ToWorldTransform.getPosition();
+        // Keep the exact scalar classification expression, including tangency
+        // and the coincident-center threshold, without vector boundary repair.
+        const decimal distanceSquare = betweenCenters.lengthSquare();
+        const decimal radius1 = static_cast<const SphereShape*>(info.collisionShape1)->getRadius();
+        const decimal radius2 = static_cast<const SphereShape*>(info.collisionShape2)->getRadius();
+        const decimal radiusSum = radius1 + radius2;
+        if (distanceSquare < radiusSum * radiusSum) {
+            if (info.reportContacts && distanceSquare > MACHINE_EPSILON) {
+                const uint32 lane = packet.count++;
+                packet.indices[lane] = index;
+                packet.betweenCenters[lane] = betweenCenters;
+                packet.distanceSquare[lane] = distanceSquare;
+                packet.radius1[lane] = radius1;
+                packet.radius2[lane] = radius2;
+                if (packet.count == 4) isCollisionFound |= packet.flush(batch);
+            }
+            else {
+                const decimal depth = radiusSum - std::sqrt(distanceSquare);
+                if (depth > 0) {
+                    // Flush before an exceptional contact to retain pair order.
+                    // Triggers emit no contacts, so they need not break packets.
+                    if (info.reportContacts) isCollisionFound |= packet.flush(batch);
+                    reportSphereContact(batch, index, betweenCenters, distanceSquare, depth, radius1, radius2);
+                    isCollisionFound = true;
+                }
+            }
+        }
+    }
+    return packet.flush(batch) || isCollisionFound;
+}
+}
+#endif
+
+bool SphereVsSphereAlgorithm::testCollision(NarrowPhaseInfoBatch& batch, uint32 batchStartIndex,
+                                           uint32 batchNbItems, MemoryAllocator& /*memoryAllocator*/) {
+    assert(batchStartIndex <= batch.getNbObjects());
+    assert(batchNbItems <= batch.getNbObjects() - batchStartIndex);
+    const uint32 end = batchStartIndex + batchNbItems;
+#ifdef RP3D_SPHERE_PAIR_SIMD
+    if (batchNbItems >= 4) {
+        uint32 index = batchStartIndex;
+        const bool triggersFound = testTriggerPrefix(batch, index, end);
+        if (index == end) return triggersFound;
+        const bool contactsFound = end - index >= 4 ? testSpherePackets(batch, index, end) : testScalarRange(batch, index, end);
+        return contactsFound || triggersFound;
+    }
+#endif
+    return testScalarRange(batch, batchStartIndex, end);
 }
