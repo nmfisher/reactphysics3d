@@ -39,6 +39,11 @@ set (RP3D_TESTS_HEADERS
     "tests/utils/TestQuickHull.h"
 )
 
+# Rigid body transform regression tests
+add_executable(test_rigidbody_transform tests/engine/TestRigidBodyTransform.cpp Test.cpp)
+target_link_libraries(test_rigidbody_transform reactphysics3d)
+add_test(RigidBodyTransform test_rigidbody_transform)
+
 # Source files
 set (RP3D_TESTS_SOURCES
     "main.cpp"
