@@ -274,38 +274,85 @@ bool HeightField::raycast(const Ray& ray, RaycastInfo& raycastInfo, Collider* co
 
         const Vector3 rayDirection = ray.point2 - ray.point1;
 
-        int32 stepI = rayDirection.x > 0 ? 1 : (rayDirection.x < 0 ? -1 : 0);
-        int32 stepJ = rayDirection.z > 0 ? 1 : (rayDirection.z < 0 ? -1 : 0);
-        decimal nextI = static_cast<decimal>(stepI >= 0 ? i + 1 : i);
-        decimal nextJ = static_cast<decimal>(stepJ >= 0 ? j + 1 : j);
-        decimal sizeI = aabbSize.x / nbCellsI;
-        decimal sizeJ = aabbSize.z / nbCellsJ;
-        decimal tMaxI = ((nextI * sizeI) - outHitGridPoint.x) / rayDirection.x;
-        decimal tMaxJ = ((nextJ * sizeJ) - outHitGridPoint.z) / rayDirection.z;
-        decimal tDeltaI = sizeI / std::abs(rayDirection.x);
-        decimal tDeltaJ = sizeJ / std::abs(rayDirection.z);
+        int32 stepI = rayDirection.x > decimal(0.0) ? 1 : (rayDirection.x < decimal(0.0) ? -1 : 0);
+        int32 stepJ = rayDirection.z > decimal(0.0) ? 1 : (rayDirection.z < decimal(0.0) ? -1 : 0);
+        const decimal sizeI = aabbSize.x / nbCellsI;
+        const decimal sizeJ = aabbSize.z / nbCellsJ;
+
+        // If the entry point lies right on a grid boundary, floating-point rounding when shifting
+        // by mBounds.getMin() can place (i, j) one cell past the boundary in the step direction.
+        const decimal boundaryEps = decimal(1e-5);
+        const decimal gridI = outHitGridPoint.x / sizeI;
+        const decimal gridJ = outHitGridPoint.z / sizeJ;
+        if (stepI > 0 && i > 0 && (gridI - static_cast<decimal>(i)) <= boundaryEps) {
+            i--;
+        }
+        else if (stepI < 0 && i + 1 < nbCellsI && (static_cast<decimal>(i + 1) - gridI) <= boundaryEps) {
+            i++;
+        }
+        if (stepJ > 0 && j > 0 && (gridJ - static_cast<decimal>(j)) <= boundaryEps) {
+            j--;
+        }
+        else if (stepJ < 0 && j + 1 < nbCellsJ && (static_cast<decimal>(j + 1) - gridJ) <= boundaryEps) {
+            j++;
+        }
+
+        const int32 altZeroStepI = (stepI == 0)
+            ? ((i > 0 && (gridI - static_cast<decimal>(i)) <= boundaryEps) ? (i - 1)
+               : ((i + 1 < nbCellsI && (static_cast<decimal>(i + 1) - gridI) <= boundaryEps) ? (i + 1) : -1))
+            : -1;
+        const int32 altZeroStepJ = (stepJ == 0)
+            ? ((j > 0 && (gridJ - static_cast<decimal>(j)) <= boundaryEps) ? (j - 1)
+               : ((j + 1 < nbCellsJ && (static_cast<decimal>(j + 1) - gridJ) <= boundaryEps) ? (j + 1) : -1))
+            : -1;
+
+        const decimal nextI = static_cast<decimal>(stepI >= 0 ? i + 1 : i);
+        const decimal nextJ = static_cast<decimal>(stepJ >= 0 ? j + 1 : j);
+        decimal tMaxI = (stepI != 0) ? (((nextI * sizeI) - outHitGridPoint.x) / rayDirection.x) : DECIMAL_LARGEST;
+        decimal tMaxJ = (stepJ != 0) ? (((nextJ * sizeJ) - outHitGridPoint.z) / rayDirection.z) : DECIMAL_LARGEST;
+        const decimal tDeltaI = (stepI != 0) ? (sizeI / std::abs(rayDirection.x)) : DECIMAL_LARGEST;
+        const decimal tDeltaJ = (stepJ != 0) ? (sizeJ / std::abs(rayDirection.z)) : DECIMAL_LARGEST;
 
         decimal smallestHitFraction = ray.maxFraction;
 
+        auto raycastCell = [&](int32 cellI, int32 cellJ) {
+            if (cellI < 0 || cellI >= nbCellsI || cellJ < 0 || cellJ >= nbCellsJ) return;
+            const Vector3 p1 = getVertexAt(cellI, cellJ);
+            const Vector3 p2 = getVertexAt(cellI, cellJ + 1);
+            const Vector3 p3 = getVertexAt(cellI + 1, cellJ);
+            const Vector3 p4 = getVertexAt(cellI + 1, cellJ + 1);
+
+            uint32 shapeId = computeTriangleShapeId(cellI, cellJ, 0);
+            isHit |= raycastTriangle(ray, p1, p2, p3, shapeId, collider, raycastInfo, smallestHitFraction, testSide, allocator);
+
+            shapeId = computeTriangleShapeId(cellI, cellJ, 1);
+            isHit |= raycastTriangle(ray, p3, p2, p4, shapeId, collider, raycastInfo, smallestHitFraction, testSide, allocator);
+        };
+
         while (i >= 0 && i < nbCellsI && j >= 0 && j < nbCellsJ) {
 
-           // Compute the four point of the current quad
-           const Vector3 p1 = getVertexAt(i, j);
-           const Vector3 p2 = getVertexAt(i, j + 1);
-           const Vector3 p3 = getVertexAt(i + 1, j);
-           const Vector3 p4 = getVertexAt(i + 1, j + 1);
+            raycastCell(i, j);
+            if (altZeroStepI != -1) {
+                raycastCell(altZeroStepI, j);
+            }
+            if (altZeroStepJ != -1) {
+                raycastCell(i, altZeroStepJ);
+            }
+            if (altZeroStepI != -1 && altZeroStepJ != -1) {
+                raycastCell(altZeroStepI, altZeroStepJ);
+            }
 
-           // Raycast against the first triangle of the cell
-           uint32 shapeId = computeTriangleShapeId(i, j, 0);
-           isHit |= raycastTriangle(ray, p1, p2, p3, shapeId, collider, raycastInfo, smallestHitFraction, testSide, allocator);
+            if (stepI == 0 && stepJ == 0) break;
 
-           // Raycast against the second triangle of the cell
-           shapeId = computeTriangleShapeId(i, j, 1);
-           isHit |= raycastTriangle(ray, p3, p2, p4, shapeId, collider, raycastInfo, smallestHitFraction, testSide, allocator);
-
-           if (stepI == 0 && stepJ == 0) break;
-
-           if (tMaxI < tMaxJ) {
+            if (stepI != 0 && stepJ != 0 && std::abs(tMaxI - tMaxJ) <= boundaryEps * std::min(tDeltaI, tDeltaJ)) {
+                raycastCell(i + stepI, j);
+                raycastCell(i, j + stepJ);
+                tMaxI += tDeltaI;
+                tMaxJ += tDeltaJ;
+                i += stepI;
+                j += stepJ;
+            }
+            else if (tMaxI < tMaxJ) {
                 tMaxI += tDeltaI;
                 i += stepI;
             }

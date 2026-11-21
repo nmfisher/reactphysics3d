@@ -184,6 +184,23 @@ class TestEngineBugFixes : public Test {
                 common.destroyPhysicsWorld(world);
                 common.destroyHeightFieldShape(hfShape);
                 common.destroyHeightField(hf);
+
+                // Ray hitting within sub-ULP of an interior heightfield grid line (0.5 on 10x10 grid)
+                float flatHeights[100];
+                for (int k = 0; k < 100; k++) flatHeights[k] = 4.0f;
+                HeightField* flatHf = common.createHeightField(10, 10, flatHeights, HeightField::HeightDataType::HEIGHT_FLOAT_TYPE, messages);
+                HeightFieldShape* flatShape = common.createHeightFieldShape(flatHf);
+                PhysicsWorld* world2 = common.createPhysicsWorld();
+                RigidBody* flatBody = world2->createRigidBody(Transform::identity());
+                flatBody->setType(BodyType::STATIC);
+                Collider* flatCol = flatBody->addCollider(flatShape, Transform::identity());
+                RaycastInfo hitInfo;
+                const decimal tiny = MACHINE_EPSILON * decimal(0.25);
+                rp3d_test(flatCol->raycast(Ray(Vector3(3, 15, decimal(0.5) - tiny), Vector3(3, -1, decimal(0.5) + tiny)), hitInfo));
+                rp3d_test(flatCol->raycast(Ray(Vector3(3, 15, decimal(0.5) - tiny), Vector3(3, -1, decimal(0.5) - tiny)), hitInfo));
+                common.destroyPhysicsWorld(world2);
+                common.destroyHeightFieldShape(flatShape);
+                common.destroyHeightField(flatHf);
             }
             rp3d_test(!trackingAllocator.sizeMismatchDetected);
             rp3d_test(trackingAllocator.liveAllocations.empty());
