@@ -103,7 +103,10 @@ void ColliderComponents::allocate(uint32 nbComponentsToAllocate) {
         memcpy(newCollisionCategoryBits, mCollisionCategoryBits, mNbComponents * sizeof(unsigned short));
         memcpy(newCollideWithMaskBits, mCollideWithMaskBits, mNbComponents * sizeof(unsigned short));
         memcpy(newLocalToWorldTransforms, mLocalToWorldTransforms, mNbComponents * sizeof(Transform));
-        memcpy(newOverlappingPairs, mOverlappingPairs, mNbComponents * sizeof(Array<uint64>));
+        for (uint32 i = 0; i < mNbComponents; i++) {
+            new (newOverlappingPairs + i) Array<uint64>(std::move(mOverlappingPairs[i]));
+            mOverlappingPairs[i].~Array<uint64>();
+        }
         memcpy(hasCollisionShapeChangedSize, mHasCollisionShapeChangedSize, mNbComponents * sizeof(bool));
         memcpy(isTrigger, mIsTrigger, mNbComponents * sizeof(bool));
         memcpy(isSimulationCollider, mIsSimulationCollider, mNbComponents * sizeof(bool));
@@ -111,7 +114,7 @@ void ColliderComponents::allocate(uint32 nbComponentsToAllocate) {
         memcpy(materials, mMaterials, mNbComponents * sizeof(Material));
 
         // Deallocate previous memory
-        mMemoryAllocator.release(mBuffer, mNbAllocatedComponents * mComponentDataSize);
+        mMemoryAllocator.release(mBuffer, mNbAllocatedComponents * mComponentDataSize + mAlignmentMarginSize);
     }
 
     mBuffer = newBuffer;

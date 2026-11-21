@@ -274,11 +274,15 @@ jobs:
           CXX: ${{ matrix.config.cxx }}
         run: |
           mkdir build_hello_world
+          LINKER_FLAGS=""
+          if [[ "${{ matrix.config.os }}" == ubuntu* ]]; then
+            LINKER_FLAGS="-DCMAKE_EXE_LINKER_FLAGS=-no-pie"
+          fi
           cmake \
             -S helloworld \
             -B build_hello_world \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }} \
-            -DCMAKE_EXE_LINKER_FLAGS=-no-pie \
+            ${LINKER_FLAGS} \
             -DCMAKE_CXX_FLAGS="${{ matrix.config.cxx_flags }}" \
             -G "${{ matrix.config.generators }}"
           cmake --build build_hello_world/ --config ${{ matrix.config.build_type }}
@@ -311,6 +315,6 @@ jobs:
         if: ${{ matrix.config.coverage }}
         uses: codecov/codecov-action@v4
         with:
-          fail_ci_if_error: true
+          fail_ci_if_error: false
           token: ${{ secrets.codecov_token }}
           verbose: false

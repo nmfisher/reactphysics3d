@@ -122,7 +122,7 @@ void BallAndSocketJointComponents::allocate(uint32 nbComponentsToAllocate) {
         memcpy(newConeLimitACrossB, mConeLimitACrossB, mNbComponents * sizeof(Vector3));
 
         // Deallocate previous memory
-        mMemoryAllocator.release(mBuffer, mNbAllocatedComponents * mComponentDataSize);
+        mMemoryAllocator.release(mBuffer, mNbAllocatedComponents * mComponentDataSize + mAlignmentMarginSize);
     }
 
     mBuffer = newBuffer;

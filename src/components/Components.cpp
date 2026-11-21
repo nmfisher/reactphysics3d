@@ -50,7 +50,7 @@ Components::~Components() {
         }
 
         // Size for the data of a single component (in bytes)
-        const size_t totalSizeBytes = mNbAllocatedComponents * mComponentDataSize;
+        const size_t totalSizeBytes = mNbAllocatedComponents * mComponentDataSize + mAlignmentMarginSize;
 
         // Release the allocated memory
         mMemoryAllocator.release(mBuffer, totalSizeBytes);

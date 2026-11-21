@@ -176,7 +176,7 @@ void HingeJointComponents::allocate(uint32 nbComponentsToAllocate) {
         memcpy(newMaxMotorTorque, mMaxMotorTorque, mNbComponents * sizeof(decimal));
 
         // Deallocate previous memory
-        mMemoryAllocator.release(mBuffer, mNbAllocatedComponents * mComponentDataSize);
+        mMemoryAllocator.release(mBuffer, mNbAllocatedComponents * mComponentDataSize + mAlignmentMarginSize);
     }
 
     mBuffer = newBuffer;

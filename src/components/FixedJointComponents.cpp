@@ -111,7 +111,7 @@ void FixedJointComponents::allocate(uint32 nbComponentsToAllocate) {
         memcpy(newInitOrientationDifferenceInv, mInitOrientationDifferenceInv, mNbComponents * sizeof(Quaternion));
 
         // Deallocate previous memory
-        mMemoryAllocator.release(mBuffer, mNbAllocatedComponents * mComponentDataSize);
+        mMemoryAllocator.release(mBuffer, mNbAllocatedComponents * mComponentDataSize + mAlignmentMarginSize);
     }
 
     mBuffer = newBuffer;

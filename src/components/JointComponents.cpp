@@ -87,7 +87,7 @@ void JointComponents::allocate(uint32 nbComponentsToAllocate) {
         memcpy(newIsAlreadyInIsland, mIsAlreadyInIsland, mNbComponents * sizeof(bool));
 
         // Deallocate previous memory
-        mMemoryAllocator.release(mBuffer, mNbAllocatedComponents * mComponentDataSize);
+        mMemoryAllocator.release(mBuffer, mNbAllocatedComponents * mComponentDataSize + mAlignmentMarginSize);
     }
 
     mBuffer = newBuffer;

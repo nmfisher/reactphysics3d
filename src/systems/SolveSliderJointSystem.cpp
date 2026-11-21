@@ -121,6 +121,11 @@ void SolveSliderJointSystem::initBeforeSolve() {
             mSliderJointComponents.mBiasTranslation[i] *= biasFactor;
         }
 
+        // Compute the cross products used in the Jacobians
+        mSliderJointComponents.mR2CrossN1[i] = mSliderJointComponents.mR2[i].cross(mSliderJointComponents.mN1[i]);
+        mSliderJointComponents.mR2CrossN2[i] = mSliderJointComponents.mR2[i].cross(mSliderJointComponents.mN2[i]);
+        mSliderJointComponents.mR2CrossSliderAxis[i] = mSliderJointComponents.mR2[i].cross(mSliderJointComponents.mSliderAxisWorld[i]);
+
         // If the limits are enabled
         if (mSliderJointComponents.mIsLimitEnabled[i] && (mSliderJointComponents.mIsLowerLimitViolated[i] ||
                                                                           mSliderJointComponents.mIsUpperLimitViolated[i])) {
@@ -151,11 +156,6 @@ void SolveSliderJointSystem::initBeforeSolve() {
                 mSliderJointComponents.mBUpperLimit[i] = biasFactor * upperLimitError;
             }
         }
-
-        // Compute the cross products used in the Jacobians
-        mSliderJointComponents.mR2CrossN1[i] = mSliderJointComponents.mR2[i].cross(mSliderJointComponents.mN1[i]);
-        mSliderJointComponents.mR2CrossN2[i] = mSliderJointComponents.mR2[i].cross(mSliderJointComponents.mN2[i]);
-        mSliderJointComponents.mR2CrossSliderAxis[i] = mSliderJointComponents.mR2[i].cross(mSliderJointComponents.mSliderAxisWorld[i]);
 
         const Vector3& r2CrossN1 = mSliderJointComponents.mR2CrossN1[i];
         const Vector3& r2CrossN2 = mSliderJointComponents.mR2CrossN2[i];
@@ -195,13 +195,14 @@ void SolveSliderJointSystem::initBeforeSolve() {
 
         // Compute the inverse of the mass matrix K=JM^-1J^t for the 3 rotation
         // contraints (3x3 matrix)
-        mSliderJointComponents.mInverseMassMatrixRotation[i] = i1 + i2;
-        decimal massMatrixRotationDeterminant = mSliderJointComponents.mInverseMassMatrixRotation[i].getDeterminant();
+        const Matrix3x3 massMatrixRotation = i1 + i2;
+        mSliderJointComponents.mInverseMassMatrixRotation[i].setToZero();
+        decimal massMatrixRotationDeterminant = massMatrixRotation.getDeterminant();
         if (std::abs(massMatrixRotationDeterminant) > MACHINE_EPSILON) {
             if (mRigidBodyComponents.mBodyTypes[componentIndexBody1] == BodyType::DYNAMIC ||
                 mRigidBodyComponents.mBodyTypes[componentIndexBody2] == BodyType::DYNAMIC) {
 
-                mSliderJointComponents.mInverseMassMatrixRotation[i] = mSliderJointComponents.mInverseMassMatrixRotation[i].getInverse(massMatrixRotationDeterminant);
+                mSliderJointComponents.mInverseMassMatrixRotation[i] = massMatrixRotation.getInverse(massMatrixRotationDeterminant);
             }
         }
 
@@ -698,13 +699,14 @@ void SolveSliderJointSystem::solvePositionConstraint() {
 
         // Compute the inverse of the mass matrix K=JM^-1J^t for the 3 rotation
         // contraints (3x3 matrix)
-        mSliderJointComponents.mInverseMassMatrixRotation[i] = mSliderJointComponents.mI1[i] + mSliderJointComponents.mI2[i];
-        decimal massMatrixRotationDeterminant = mSliderJointComponents.mInverseMassMatrixRotation[i].getDeterminant();
+        const Matrix3x3 massMatrixRotation = mSliderJointComponents.mI1[i] + mSliderJointComponents.mI2[i];
+        mSliderJointComponents.mInverseMassMatrixRotation[i].setToZero();
+        decimal massMatrixRotationDeterminant = massMatrixRotation.getDeterminant();
         if (std::abs(massMatrixRotationDeterminant) > MACHINE_EPSILON) {
 
             if (mRigidBodyComponents.mBodyTypes[componentIndexBody1] == BodyType::DYNAMIC || mRigidBodyComponents.mBodyTypes[componentIndexBody2] == BodyType::DYNAMIC) {
 
-                mSliderJointComponents.mInverseMassMatrixRotation[i] = mSliderJointComponents.mInverseMassMatrixRotation[i].getInverse(massMatrixRotationDeterminant);
+                mSliderJointComponents.mInverseMassMatrixRotation[i] = massMatrixRotation.getInverse(massMatrixRotationDeterminant);
             }
 
             // Calculate difference in rotation

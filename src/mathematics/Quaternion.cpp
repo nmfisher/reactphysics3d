@@ -27,6 +27,7 @@
 #include <reactphysics3d/mathematics/Quaternion.h>
 #include <reactphysics3d/mathematics/Vector3.h>
 #include <reactphysics3d/mathematics/Matrix3x3.h>
+#include <reactphysics3d/mathematics/mathematics_functions.h>
 #include <cassert>
 
 // Namespace
@@ -122,7 +123,7 @@ Quaternion::Quaternion(const Matrix3x3& matrix) {
 void Quaternion::getRotationAngleAxis(decimal& angle, Vector3& axis) const {
 
     // Compute the roation angle
-    angle = std::acos(w) * decimal(2.0);
+    angle = std::acos(clamp(w, decimal(-1.0), decimal(1.0))) * decimal(2.0);
 
     // Compute the 3D rotation axis
     Vector3 rotationAxis(x, y, z);

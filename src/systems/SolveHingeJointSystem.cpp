@@ -535,17 +535,17 @@ void SolveHingeJointSystem::solvePositionConstraint() {
 
         if (mHingeJointComponents.mIsLimitEnabled[i]) {
 
-            decimal inverseMassMatrixLimitMotor = mHingeJointComponents.mInverseMassMatrixLimitMotor[i];
-
             Vector3& a1 = mHingeJointComponents.mA1[i];
 
             if (mHingeJointComponents.mIsLowerLimitViolated[i] || mHingeJointComponents.mIsUpperLimitViolated[i]) {
 
                 // Compute the inverse of the mass matrix K=JM^-1J^t for the limits (1x1 matrix)
-                mHingeJointComponents.mInverseMassMatrixLimitMotor[i] = a1.dot(mHingeJointComponents.mI1[i] * a1) + a1.dot(mHingeJointComponents.mI2[i] * a1);
-                mHingeJointComponents.mInverseMassMatrixLimitMotor[i] = (inverseMassMatrixLimitMotor > decimal(0.0)) ?
-                                          decimal(1.0) / mHingeJointComponents.mInverseMassMatrixLimitMotor[i] : decimal(0.0);
+                const decimal massMatrixLimitMotor = a1.dot(mHingeJointComponents.mI1[i] * a1) + a1.dot(mHingeJointComponents.mI2[i] * a1);
+                mHingeJointComponents.mInverseMassMatrixLimitMotor[i] = (massMatrixLimitMotor > decimal(0.0)) ?
+                                          decimal(1.0) / massMatrixLimitMotor : decimal(0.0);
             }
+
+            const decimal inverseMassMatrixLimitMotor = mHingeJointComponents.mInverseMassMatrixLimitMotor[i];
 
             // If the lower limit is violated
             if (mHingeJointComponents.mIsLowerLimitViolated[i]) {
@@ -779,7 +779,8 @@ decimal SolveHingeJointSystem::computeCurrentHingeAngle(Entity jointEntity, cons
     decimal sinHalfAngleAbs = relativeRotation.getVectorV().length();
 
     // Compute the dot product of the relative rotation axis and the hinge axis
-    decimal dotProduct = relativeRotation.getVectorV().dot(mHingeJointComponents.getA1(jointEntity));
+    const Vector3 hingeAxisWorld = (orientationBody1 * mHingeJointComponents.getHingeLocalAxisBody1(jointEntity)).getUnit();
+    decimal dotProduct = relativeRotation.getVectorV().dot(hingeAxisWorld);
 
     // If the relative rotation axis and the hinge axis are pointing the same direction
     if (dotProduct >= decimal(0.0)) {

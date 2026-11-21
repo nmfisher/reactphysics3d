@@ -76,13 +76,16 @@ void BodyComponents::allocate(uint32 nbComponentsToAllocate) {
         // Copy component data from the previous buffer to the new one
         memcpy(newBodiesEntities, mBodiesEntities, mNbComponents * sizeof(Entity));
         memcpy(newBodies, mBodies, mNbComponents * sizeof(Body*));
-        memcpy(newColliders, mColliders, mNbComponents * sizeof(Array<Entity>));
+        for (uint32 i = 0; i < mNbComponents; i++) {
+            new (newColliders + i) Array<Entity>(std::move(mColliders[i]));
+            mColliders[i].~Array<Entity>();
+        }
         memcpy(newIsActive, mIsActive, mNbComponents * sizeof(bool));
         memcpy(newUserData, mUserData, mNbComponents * sizeof(void*));
         memcpy(newHasSimulationCollider, mHasSimulationCollider, mNbComponents * sizeof(bool));
 
         // Deallocate previous memory
-        mMemoryAllocator.release(mBuffer, mNbAllocatedComponents * mComponentDataSize);
+        mMemoryAllocator.release(mBuffer, mNbAllocatedComponents * mComponentDataSize + mAlignmentMarginSize);
     }
 
     mBuffer = newBuffer;

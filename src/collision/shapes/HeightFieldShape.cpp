@@ -84,8 +84,9 @@ bool HeightFieldShape::raycast(const Ray& ray, RaycastInfo& raycastInfo, Collide
 
     if (mHeightField->raycast(scaledRay, raycastInfo, collider, getRaycastTestType(), allocator)) {
 
-        // Scale back the contact point because we used a ray scale with inverse height-field scale
+        // Scale back the contact point and normal because we used a ray scaled with inverse height-field scale
         raycastInfo.worldPoint = raycastInfo.worldPoint * mScale;
+        raycastInfo.worldNormal = (raycastInfo.worldNormal * inverseScale).getUnit();
 
         return true;
     }

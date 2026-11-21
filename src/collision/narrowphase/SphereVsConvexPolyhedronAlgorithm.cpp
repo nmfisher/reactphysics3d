@@ -69,7 +69,7 @@ bool SphereVsConvexPolyhedronAlgorithm::testCollision(NarrowPhaseInfoBatch& narr
         lastFrameCollisionInfo->wasUsingSAT = false;
 
         // If we have found a contact point inside the margins (shallow penetration)
-        if (gjkResults[batchIndex] == GJKAlgorithm::GJKResult::COLLIDE_IN_MARGIN) {
+        if (gjkResults[batchIndex - batchStartIndex] == GJKAlgorithm::GJKResult::COLLIDE_IN_MARGIN) {
 
             // Return true
             narrowPhaseInfoBatch.narrowPhaseInfos[batchIndex].isColliding = true;
@@ -78,7 +78,7 @@ bool SphereVsConvexPolyhedronAlgorithm::testCollision(NarrowPhaseInfoBatch& narr
         }
 
         // If we have overlap even without the margins (deep penetration)
-        if (gjkResults[batchIndex] == GJKAlgorithm::GJKResult::INTERPENETRATE) {
+        if (gjkResults[batchIndex - batchStartIndex] == GJKAlgorithm::GJKResult::INTERPENETRATE) {
 
             // Run the SAT algorithm to find the separating axis and compute contact point
             SATAlgorithm satAlgorithm(clipWithPreviousAxisIfStillColliding, memoryAllocator);

@@ -159,13 +159,17 @@ void RigidBodyComponents::allocate(uint32 nbComponentsToAllocate) {
         memcpy(newCentersOfMassWorld, mCentersOfMassWorld, mNbComponents * sizeof(Vector3));
         memcpy(newIsGravityEnabled, mIsGravityEnabled, mNbComponents * sizeof(bool));
         memcpy(newIsAlreadyInIsland, mIsAlreadyInIsland, mNbComponents * sizeof(bool));
-        memcpy(newJoints, mJoints, mNbComponents * sizeof(Array<Entity>));
-        memcpy(newContactPairs, mContactPairs, mNbComponents * sizeof(Array<uint>));
+        for (uint32 i = 0; i < mNbComponents; i++) {
+            new (newJoints + i) Array<Entity>(std::move(mJoints[i]));
+            mJoints[i].~Array<Entity>();
+            new (newContactPairs + i) Array<uint>(std::move(mContactPairs[i]));
+            mContactPairs[i].~Array<uint>();
+        }
         memcpy(newLinearLockAxisFactors, mLinearLockAxisFactors, mNbComponents * sizeof(Vector3));
         memcpy(newAngularLockAxisFactors, mAngularLockAxisFactors, mNbComponents * sizeof(Vector3));
 
         // Deallocate previous memory
-        mMemoryAllocator.release(mBuffer, mNbAllocatedComponents * mComponentDataSize);
+        mMemoryAllocator.release(mBuffer, mNbAllocatedComponents * mComponentDataSize + mAlignmentMarginSize);
     }
 
     mBuffer = newBuffer;

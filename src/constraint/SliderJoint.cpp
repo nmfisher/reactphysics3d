@@ -58,6 +58,7 @@ SliderJoint::SliderJoint(Entity entity, PhysicsWorld& world, const SliderJointIn
         anchorPointBody2Local = jointInfo.anchorPointBody2LocalSpace;
 
         sliderLocalAxisBody1 = jointInfo.sliderAxisBody1Local;
+        sliderLocalAxisBody1.normalize();
     }
     else {
 
@@ -224,11 +225,12 @@ void SliderJoint::setMotorSpeed(decimal motorSpeed) {
  */
 void SliderJoint::setMaxMotorForce(decimal maxMotorForce) {
 
+    assert(maxMotorForce >= decimal(0.0));
+
     const decimal maxForce = mWorld.mSliderJointsComponents.getMaxMotorForce(mEntity);
 
     if (maxMotorForce != maxForce) {
 
-        assert(maxForce >= decimal(0.0));
         mWorld.mSliderJointsComponents.setMaxMotorForce(mEntity, maxMotorForce);
 
         // Wake up the two bodies of the joint

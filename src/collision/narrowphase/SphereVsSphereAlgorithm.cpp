@@ -96,7 +96,7 @@ bool SphereVsSphereAlgorithm::testCollision(NarrowPhaseInfoBatch& narrowPhaseInf
                         normal.setAllValues(0, 1, 0);
 
                         intersectionOnBody1 = sphere1Radius * (transform1Inverse.getOrientation() * normal);
-                        intersectionOnBody2 = sphere2Radius * (transform2Inverse.getOrientation() * normal);
+                        intersectionOnBody2 = sphere2Radius * (transform2Inverse.getOrientation() * (-normal));
                     }
 
                     // Create the contact info object

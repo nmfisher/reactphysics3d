@@ -72,3 +72,8 @@ add_test(Test tests)
 add_executable(test_collision_refiltering tests/collision/TestCollisionRefiltering.cpp Test.cpp)
 target_link_libraries(test_collision_refiltering reactphysics3d)
 add_test(CollisionRefiltering test_collision_refiltering)
+
+# Engine bug-fix regression tests
+add_executable(test_engine_bug_fixes tests/engine/TestEngineBugFixes.cpp Test.cpp)
+target_link_libraries(test_engine_bug_fixes reactphysics3d)
+add_test(EngineBugFixes test_engine_bug_fixes)

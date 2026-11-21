@@ -185,15 +185,15 @@ void SliderJointComponents::allocate(uint32 nbComponentsToAllocate) {
         memcpy(newIsUpperLimitViolated, mIsUpperLimitViolated, mNbComponents * sizeof(bool));
         memcpy(newMotorSpeed, mMotorSpeed, mNbComponents * sizeof(decimal));
         memcpy(newMaxMotorForce, mMaxMotorForce, mNbComponents * sizeof(decimal));
-        memcpy(newR2CrossN1, mR2CrossN1, mNbComponents * sizeof(decimal));
-        memcpy(newR2CrossN2, mR2CrossN2, mNbComponents * sizeof(decimal));
-        memcpy(newR2CrossSliderAxis, mR2CrossSliderAxis, mNbComponents * sizeof(decimal));
-        memcpy(newR1PlusUCrossN1, mR1PlusUCrossN1, mNbComponents * sizeof(decimal));
-        memcpy(newR1PlusUCrossN2, mR1PlusUCrossN2, mNbComponents * sizeof(decimal));
-        memcpy(newR1PlusUCrossSliderAxis, mR1PlusUCrossSliderAxis, mNbComponents * sizeof(decimal));
+        memcpy(newR2CrossN1, mR2CrossN1, mNbComponents * sizeof(Vector3));
+        memcpy(newR2CrossN2, mR2CrossN2, mNbComponents * sizeof(Vector3));
+        memcpy(newR2CrossSliderAxis, mR2CrossSliderAxis, mNbComponents * sizeof(Vector3));
+        memcpy(newR1PlusUCrossN1, mR1PlusUCrossN1, mNbComponents * sizeof(Vector3));
+        memcpy(newR1PlusUCrossN2, mR1PlusUCrossN2, mNbComponents * sizeof(Vector3));
+        memcpy(newR1PlusUCrossSliderAxis, mR1PlusUCrossSliderAxis, mNbComponents * sizeof(Vector3));
 
         // Deallocate previous memory
-        mMemoryAllocator.release(mBuffer, mNbAllocatedComponents * mComponentDataSize);
+        mMemoryAllocator.release(mBuffer, mNbAllocatedComponents * mComponentDataSize + mAlignmentMarginSize);
     }
 
     mBuffer = newBuffer;

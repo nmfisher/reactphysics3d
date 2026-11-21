@@ -115,6 +115,7 @@ int32 DynamicAABBTree::allocateNode() {
             mNodes[i].nextNodeID = i + 1;
             mNodes[i].height = -1;
         }
+        new (mNodes + (mNbAllocatedNodes - 1)) TreeNode();
         mNodes[mNbAllocatedNodes - 1].nextNodeID = TreeNode::NULL_TREE_NODE;
         mNodes[mNbAllocatedNodes - 1].height = -1;
         mFreeNodeID = mNbNodes;
@@ -652,11 +653,11 @@ void DynamicAABBTree::reportAllShapesOverlappingWithAABB(const AABB& aabb, Array
         // Get the next node ID to visit
         const int32 nodeIDToVisit = stack.pop();
 
-        assert(nodeIDToVisit >= 0);
-        assert(nodeIDToVisit < mNbAllocatedNodes);
-
         // Skip it if it is a null node
         if (nodeIDToVisit == TreeNode::NULL_TREE_NODE) continue;
+
+        assert(nodeIDToVisit >= 0);
+        assert(nodeIDToVisit < mNbAllocatedNodes);
 
         // Get the corresponding node
         const TreeNode* nodeToVisit = mNodes + nodeIDToVisit;
@@ -777,24 +778,20 @@ void DynamicAABBTree::checkNode(int32 nodeID) const {
         assert(mNodes[nodeID].parentID == TreeNode::NULL_TREE_NODE);
     }
 
-    // Get the children nodes
+    // Get the node
     TreeNode* pNode = mNodes + nodeID;
-    assert(!pNode->isLeaf());
-    int32 leftChild = pNode->children[0];
-    int32 rightChild = pNode->children[1];
 
     assert(pNode->height >= 0);
-    assert(pNode->aabb.getVolume() > 0);
+    assert(pNode->aabb.getVolume() >= decimal(0.0));
 
     // If the current node is a leaf
     if (pNode->isLeaf()) {
-
-        // Check that there are no children
-        assert(leftChild == TreeNode::NULL_TREE_NODE);
-        assert(rightChild == TreeNode::NULL_TREE_NODE);
         assert(pNode->height == 0);
     }
     else {
+
+        int32 leftChild = pNode->children[0];
+        int32 rightChild = pNode->children[1];
 
         // Check that the children node IDs are valid
         assert(0 <= leftChild && leftChild < mNbAllocatedNodes);
@@ -820,6 +817,8 @@ void DynamicAABBTree::checkNode(int32 nodeID) const {
     }
 }
 
+#endif
+
 // Compute the height of the tree
 int DynamicAABBTree::computeHeight() {
    return computeHeight(mRootNodeID);
@@ -827,6 +826,9 @@ int DynamicAABBTree::computeHeight() {
 
 // Compute the height of a given node in the tree
 int DynamicAABBTree::computeHeight(int32 nodeID) {
+    if (nodeID == TreeNode::NULL_TREE_NODE) {
+        return 0;
+    }
     assert(nodeID >= 0 && nodeID < mNbAllocatedNodes);
     TreeNode* node = mNodes + nodeID;
 
@@ -842,5 +844,3 @@ int DynamicAABBTree::computeHeight(int32 nodeID) {
     // Return the height of the node
     return 1 + std::max(leftHeight, rightHeight);
 }
-
-#endif

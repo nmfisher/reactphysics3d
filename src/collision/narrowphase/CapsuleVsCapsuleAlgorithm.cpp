@@ -140,6 +140,7 @@ bool CapsuleVsCapsuleAlgorithm::testCollision(NarrowPhaseInfoBatch& narrowPhaseI
 
                         // We choose as a contact normal, any direction that is perpendicular to the inner capsules segments
                         normalCapsule2SpaceNormalized = cosA1 < cosA2 ? seg2Normalized.cross(vec1) : seg2Normalized.cross(vec2);
+                        normalCapsule2SpaceNormalized.normalize();
                     }
 
                     Transform capsule2ToCapsule1SpaceTransform = capsule1ToCapsule2SpaceTransform.getInverse();

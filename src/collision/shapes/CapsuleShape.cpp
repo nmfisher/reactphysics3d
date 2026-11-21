@@ -98,7 +98,7 @@ bool CapsuleShape::raycast(const Ray& ray, RaycastInfo& raycastInfo, Collider* c
 
     const Vector3 n = ray.point2 - ray.point1;
 
-    const decimal epsilon = decimal(0.01);
+    const decimal parallelEpsilon = decimal(0.000001);
     Vector3 p(decimal(0), -mHalfHeight, decimal(0));
     Vector3 q(decimal(0), mHalfHeight, decimal(0));
     Vector3 d = q - p;
@@ -116,6 +116,7 @@ bool CapsuleShape::raycast(const Ray& ray, RaycastInfo& raycastInfo, Collider* c
     if (vec1DotD > dDotD + ddotDExtraCaps && vec1DotD + nDotD > dDotD + ddotDExtraCaps) return false;
 
     decimal nDotN = n.dot(n);
+    if (nDotN < MACHINE_EPSILON) return false;
     decimal mDotN = m.dot(n);
 
     decimal a = dDotD * nDotN - nDotD * nDotD;
@@ -123,7 +124,7 @@ bool CapsuleShape::raycast(const Ray& ray, RaycastInfo& raycastInfo, Collider* c
     decimal c = dDotD * k - mDotD * mDotD;
 
     // If the ray is parallel to the capsule axis
-    if (std::abs(a) < epsilon) {
+    if (std::abs(a) <= parallelEpsilon * dDotD * nDotN) {
 
         // If the origin is outside the surface of the capusle's cylinder, we return no hit
         if (c > decimal(0.0)) return false;

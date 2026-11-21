@@ -43,7 +43,7 @@ using namespace std;
 
 // Static initializations
 
-uint32 PhysicsWorld::mNbWorlds = 0;
+std::atomic<uint32> PhysicsWorld::mNbWorlds{0};
 
 // Constructor
 /**
@@ -78,14 +78,16 @@ PhysicsWorld::PhysicsWorld(MemoryManager& memoryManager, PhysicsCommon& physicsC
                 mSleepLinearVelocity(mConfig.defaultSleepLinearVelocity),
                 mSleepAngularVelocity(mConfig.defaultSleepAngularVelocity), mTimeBeforeSleep(mConfig.defaultTimeBeforeSleep) {
 
+    const uint32 worldIndex = mNbWorlds.fetch_add(1, std::memory_order_relaxed);
+
     // Automatically generate a name for the world
     if (mName == "") {
 
         std::stringstream ss;
         ss << "world";
 
-        if (mNbWorlds > 0) {
-            ss << mNbWorlds;
+        if (worldIndex > 0) {
+            ss << worldIndex;
         }
 
         mName = ss.str();
@@ -104,8 +106,6 @@ PhysicsWorld::PhysicsWorld(MemoryManager& memoryManager, PhysicsCommon& physicsC
     mCollisionDetection.setProfiler(mProfiler);
 
 #endif
-
-    mNbWorlds++;
 
     mTransformComponents.init();
     mCollidersComponents.init();
@@ -142,8 +142,8 @@ PhysicsWorld::~PhysicsWorld() {
 #endif
 
     // Destroy all the joints that have not been removed
-    for (uint32 i=0; i < mJointsComponents.getNbComponents(); i++) {
-        destroyJoint(mJointsComponents.mJoints[i]);
+    while (mJointsComponents.getNbComponents() > 0) {
+        destroyJoint(mJointsComponents.mJoints[mJointsComponents.getNbComponents() - 1]);
     }
 
     // Destroy all the rigid bodies that have not been removed

@@ -49,6 +49,8 @@ HingeJoint::HingeJoint(Entity entity, PhysicsWorld &world, const HingeJointInfo&
 
         hingeLocalAxisBody1 = jointInfo.rotationAxisBody1Local;
         hingeLocalAxisBody2 = jointInfo.rotationAxisBody2Local;
+        hingeLocalAxisBody1.normalize();
+        hingeLocalAxisBody2.normalize();
     }
     else {
 
@@ -118,9 +120,9 @@ void HingeJoint::enableMotor(bool isMotorEnabled) {
  */
 void HingeJoint::setMinAngleLimit(decimal lowerLimit) {
 
-    const decimal limit = mWorld.mHingeJointsComponents.getLowerLimit(mEntity);
+    assert(lowerLimit <= decimal(0.0) && lowerLimit >= decimal(-2.0) * PI_RP3D);
 
-    assert(limit <= decimal(0.0) && limit >= decimal(-2.0) * PI_RP3D);
+    const decimal limit = mWorld.mHingeJointsComponents.getLowerLimit(mEntity);
 
     if (lowerLimit != limit) {
 
@@ -137,9 +139,9 @@ void HingeJoint::setMinAngleLimit(decimal lowerLimit) {
  */
 void HingeJoint::setMaxAngleLimit(decimal upperLimit) {
 
-    const decimal limit = mWorld.mHingeJointsComponents.getUpperLimit(mEntity);
+    assert(upperLimit >= decimal(0) && upperLimit <= decimal(2.0) * PI_RP3D);
 
-    assert(limit >= decimal(0) && limit <= decimal(2.0) * PI_RP3D);
+    const decimal limit = mWorld.mHingeJointsComponents.getUpperLimit(mEntity);
 
     if (upperLimit != limit) {
 
@@ -182,11 +184,12 @@ void HingeJoint::setMotorSpeed(decimal motorSpeed) {
  */
 void HingeJoint::setMaxMotorTorque(decimal maxMotorTorque) {
 
+    assert(maxMotorTorque >= decimal(0.0));
+
     const decimal torque = mWorld.mHingeJointsComponents.getMaxMotorTorque(mEntity);
 
     if (maxMotorTorque != torque) {
 
-        assert(torque >= decimal(0.0));
         mWorld.mHingeJointsComponents.setMaxMotorTorque(mEntity, maxMotorTorque);
 
         // Wake up the two bodies of the joint

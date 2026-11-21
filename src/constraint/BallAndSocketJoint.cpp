@@ -151,6 +151,11 @@ Vector3 BallAndSocketJoint::getReactionForce(decimal timeStep) const {
  */
 Vector3 BallAndSocketJoint::getReactionTorque(decimal timeStep) const {
     assert(timeStep > MACHINE_EPSILON);
+    const uint32 jointIndex = mWorld.mBallAndSocketJointsComponents.getEntityIndex(mEntity);
+    if (mWorld.mBallAndSocketJointsComponents.mIsConeLimitEnabled[jointIndex]) {
+        return (-mWorld.mBallAndSocketJointsComponents.mConeLimitImpulse[jointIndex] *
+                mWorld.mBallAndSocketJointsComponents.mConeLimitACrossB[jointIndex]) / timeStep;
+    }
     return Vector3(0, 0, 0);
 }
 

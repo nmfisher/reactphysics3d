@@ -36,6 +36,10 @@ bool PoolAllocator::isMapSizeToHeadIndexInitialized = false;
 size_t PoolAllocator::mUnitSizes[NB_HEAPS];
 int PoolAllocator::mMapSizeToHeapIndex[MAX_UNIT_SIZE + 1];
 
+namespace {
+std::once_flag sPoolAllocatorInitFlag;
+}
+
 // Constructor
 PoolAllocator::PoolAllocator(MemoryAllocator& baseAllocator) : mBaseAllocator(baseAllocator) {
 
@@ -51,8 +55,8 @@ PoolAllocator::PoolAllocator(MemoryAllocator& baseAllocator) : mBaseAllocator(ba
         mNbTimesAllocateMethodCalled = 0;
 #endif
 
-    // If the mMapSizeToHeapIndex has not been initialized yet
-    if (!isMapSizeToHeadIndexInitialized) {
+    // Initialize the size-to-heap lookup tables once in a thread-safe way
+    std::call_once(sPoolAllocatorInitFlag, []() {
 
         // Initialize the array that contains the sizes of the memory units that will
         // be allocated in each different heap
@@ -75,7 +79,7 @@ PoolAllocator::PoolAllocator(MemoryAllocator& baseAllocator) : mBaseAllocator(ba
         }
 
         isMapSizeToHeadIndexInitialized = true;
-    }
+    });
 }
 
 // Destructor

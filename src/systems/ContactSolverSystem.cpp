@@ -458,12 +458,6 @@ void ContactSolverSystem::warmStart() {
 
             // Update the velocities of the body 2 by applying the impulse P
             mRigidBodyComponents.mConstrainedAngularVelocities[rigidBody2Index] += mContactConstraints[c].angularLockAxisFactorBody2 * (mContactConstraints[c].inverseInertiaTensorBody2 * angularImpulseBody2);
-
-            // Update the velocities of the body 1 by applying the impulse P
-            mRigidBodyComponents.mConstrainedAngularVelocities[rigidBody1Index] -= mContactConstraints[c].angularLockAxisFactorBody1 * (mContactConstraints[c].inverseInertiaTensorBody1 * angularImpulseBody2);
-
-            // Update the velocities of the body 1 by applying the impulse P
-            mRigidBodyComponents.mConstrainedAngularVelocities[rigidBody2Index] += mContactConstraints[c].angularLockAxisFactorBody2 * (mContactConstraints[c].inverseInertiaTensorBody2 * angularImpulseBody2);
         }
         else {  // If it is a new contact manifold
 

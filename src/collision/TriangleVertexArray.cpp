@@ -159,6 +159,7 @@ Vector3 TriangleVertexArray::getVertex(uint32 vertexIndex) const {
     }
     else {
         assert(false);
+        return Vector3::zero();
     }
 }
 

@@ -114,12 +114,13 @@ void SolveFixedJointSystem::initBeforeSolve() {
         }
 
         // Compute the inverse of the mass matrix K=JM^-1J^t for the 3 rotation contraints (3x3 matrix)
-        mFixedJointComponents.mInverseMassMatrixRotation[i] = mFixedJointComponents.mI1[i] + mFixedJointComponents.mI2[i];
-        decimal massMatrixRotationDeterminant = mFixedJointComponents.mInverseMassMatrixRotation[i].getDeterminant();
+        const Matrix3x3 massMatrixRotation = mFixedJointComponents.mI1[i] + mFixedJointComponents.mI2[i];
+        mFixedJointComponents.mInverseMassMatrixRotation[i].setToZero();
+        decimal massMatrixRotationDeterminant = massMatrixRotation.getDeterminant();
         if (std::abs(massMatrixRotationDeterminant) > MACHINE_EPSILON) {
             if (mRigidBodyComponents.mBodyTypes[componentIndexBody1] == BodyType::DYNAMIC ||
                 mRigidBodyComponents.mBodyTypes[componentIndexBody2] == BodyType::DYNAMIC) {
-                mFixedJointComponents.mInverseMassMatrixRotation[i] = mFixedJointComponents.mInverseMassMatrixRotation[i].getInverse(massMatrixRotationDeterminant);
+                mFixedJointComponents.mInverseMassMatrixRotation[i] = massMatrixRotation.getInverse(massMatrixRotationDeterminant);
             }
         }
 
@@ -387,13 +388,14 @@ void SolveFixedJointSystem::solvePositionConstraint() {
 
         // Compute the inverse of the mass matrix K=JM^-1J^t for the 3 rotation
         // contraints (3x3 matrix)
-        mFixedJointComponents.mInverseMassMatrixRotation[i] = mFixedJointComponents.mI1[i] + mFixedJointComponents.mI2[i];
-        decimal massMatrixRotationDeterminant = mFixedJointComponents.mInverseMassMatrixRotation[i].getDeterminant();
+        const Matrix3x3 massMatrixRotation = mFixedJointComponents.mI1[i] + mFixedJointComponents.mI2[i];
+        mFixedJointComponents.mInverseMassMatrixRotation[i].setToZero();
+        decimal massMatrixRotationDeterminant = massMatrixRotation.getDeterminant();
         if (std::abs(massMatrixRotationDeterminant) > MACHINE_EPSILON) {
 
             if (mRigidBodyComponents.mBodyTypes[componentIndexBody1] == BodyType::DYNAMIC ||
                 mRigidBodyComponents.mBodyTypes[componentIndexBody2] == BodyType::DYNAMIC) {
-                mFixedJointComponents.mInverseMassMatrixRotation[i] = mFixedJointComponents.mInverseMassMatrixRotation[i].getInverse(massMatrixRotationDeterminant);
+                mFixedJointComponents.mInverseMassMatrixRotation[i] = massMatrixRotation.getInverse(massMatrixRotationDeterminant);
             }
 
             // Calculate difference in rotation

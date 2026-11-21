@@ -77,7 +77,7 @@ bool CapsuleVsConvexPolyhedronAlgorithm::testCollision(NarrowPhaseInfoBatch& nar
                narrowPhaseInfoBatch.narrowPhaseInfos[batchIndex].collisionShape2->getType() == CollisionShapeType::CAPSULE);
 
         // If we have found a contact point inside the margins (shallow penetration)
-        if (gjkResults[batchIndex] == GJKAlgorithm::GJKResult::COLLIDE_IN_MARGIN) {
+        if (gjkResults[batchIndex - batchStartIndex] == GJKAlgorithm::GJKResult::COLLIDE_IN_MARGIN) {
 
             // If we need to report contacts
             if (narrowPhaseInfoBatch.narrowPhaseInfos[batchIndex].reportContacts) {
@@ -159,7 +159,7 @@ bool CapsuleVsConvexPolyhedronAlgorithm::testCollision(NarrowPhaseInfoBatch& nar
         }
 
         // If we have overlap even without the margins (deep penetration)
-        if (gjkResults[batchIndex] == GJKAlgorithm::GJKResult::INTERPENETRATE) {
+        if (gjkResults[batchIndex - batchStartIndex] == GJKAlgorithm::GJKResult::INTERPENETRATE) {
 
             // Run the SAT algorithm to find the separating axis and compute contact point
             narrowPhaseInfoBatch.narrowPhaseInfos[batchIndex].isColliding = satAlgorithm.testCollisionCapsuleVsConvexPolyhedron(narrowPhaseInfoBatch, batchIndex);

@@ -123,7 +123,11 @@ bool SphereVsCapsuleAlgorithm::testCollision(NarrowPhaseInfoBatch& narrowPhaseIn
 
                     // We choose as a contact normal, any direction that is perpendicular to the inner capsule segment
                     Vector3 normalCapsuleSpace = cosA1 < cosA2 ? capsuleSegment.cross(vec1) : capsuleSegment.cross(vec2);
+                    normalCapsuleSpace.normalize();
                     normalWorld = capsuleToWorldTransform.getOrientation() * normalCapsuleSpace;
+                    if (!isSphereShape1) {
+                        normalWorld = -normalWorld;
+                    }
 
                     // Compute the two local contact points
                     contactPointSphereLocal = sphereToCapsuleSpaceTransform.getInverse() * (sphereCenter + normalCapsuleSpace * sphereRadius);

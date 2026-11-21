@@ -484,7 +484,7 @@ HeightField* PhysicsCommon::createHeightField(int nbGridColumns, int nbGridRows,
                                               decimal integerHeightScale) {
 
     // Create the height-field
-    HeightField* heightField = new (mMemoryManager.allocate(MemoryManager::AllocationType::Pool, sizeof(TriangleMesh))) HeightField(mMemoryManager.getHeapAllocator(), mTriangleShapeHalfEdgeStructure);
+    HeightField* heightField = new (mMemoryManager.allocate(MemoryManager::AllocationType::Pool, sizeof(HeightField))) HeightField(mMemoryManager.getHeapAllocator(), mTriangleShapeHalfEdgeStructure);
 
     // Initialize the height-field
     bool isValid = heightField->init(nbGridColumns, nbGridRows, heightFieldData, dataType, messages,

@@ -154,6 +154,7 @@ void SolveBallAndSocketJointSystem::initBeforeSolve() {
 
             // Reset the accumulated impulse
             mBallAndSocketJointComponents.mImpulse[i].setToZero();
+            mBallAndSocketJointComponents.mConeLimitImpulse[i] = decimal(0.0);
         }
     }
 }

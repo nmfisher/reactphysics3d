@@ -70,7 +70,7 @@ void TransformComponents::allocate(uint32 nbComponentsToAllocate) {
         memcpy(newEntities, mBodies, mNbComponents * sizeof(Entity));
 
         // Deallocate previous memory
-        mMemoryAllocator.release(mBuffer, mNbAllocatedComponents * mComponentDataSize);
+        mMemoryAllocator.release(mBuffer, mNbAllocatedComponents * mComponentDataSize + mAlignmentMarginSize);
     }
 
     mBuffer = newBuffer;

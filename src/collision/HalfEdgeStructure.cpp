@@ -34,6 +34,8 @@ using namespace reactphysics3d;
 // Initialize the structure (when all vertices and faces have been added)
 void HalfEdgeStructure::computeHalfEdges() {
 
+    if (mFaces.size() == 0) return;
+
     Map<VerticesPair, Edge> edges(mAllocator);
     Map<VerticesPair, VerticesPair> nextEdges(mAllocator);
     Map<VerticesPair, uint32> mapEdgeToStartVertex(mAllocator);

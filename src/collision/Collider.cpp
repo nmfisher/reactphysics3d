@@ -210,6 +210,32 @@ unsigned short Collider::getCollideWithMaskBits() const {
 // Notify the collider that the size of the collision shape has been changed by the user
 void Collider::setHasCollisionShapeChangedSize(bool hasCollisionShapeChangedSize) {
     mBody->mWorld.mCollidersComponents.setHasCollisionShapeChangedSize(mEntity, hasCollisionShapeChangedSize);
+
+    if (hasCollisionShapeChangedSize) {
+        RigidBody* rigidBody = dynamic_cast<RigidBody*>(mBody);
+        if (rigidBody != nullptr) {
+            rigidBody->setIsSleeping(false);
+        }
+
+        // Wake up any sleeping rigid bodies currently overlapping with this collider
+        const Array<uint64>& overlappingPairs = mBody->mWorld.mCollidersComponents.getOverlappingPairs(mEntity);
+        for (uint32 i = 0; i < overlappingPairs.size(); i++) {
+            OverlappingPairs::OverlappingPair* pair = mBody->mWorld.mCollisionDetection.mOverlappingPairs.getOverlappingPair(overlappingPairs[i]);
+            if (pair != nullptr) {
+                const Entity otherCollider = (pair->collider1 == mEntity) ? pair->collider2 : pair->collider1;
+                const Entity otherBodyEntity = mBody->mWorld.mCollidersComponents.getBody(otherCollider);
+                if (mBody->mWorld.mRigidBodyComponents.hasComponent(otherBodyEntity)) {
+                    RigidBody* otherRigidBody = mBody->mWorld.mRigidBodyComponents.getRigidBody(otherBodyEntity);
+                    if (otherRigidBody != nullptr) {
+                        otherRigidBody->setIsSleeping(false);
+                    }
+                }
+            }
+        }
+
+        // Immediately update the collider AABB in the broad-phase (including static/disabled colliders)
+        mBody->mWorld.mCollisionDetection.updateCollider(mEntity);
+    }
 }
 
 // Set a new material for this rigid body

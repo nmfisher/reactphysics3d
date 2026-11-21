@@ -25,6 +25,9 @@
 
 // Libraries
 #include <reactphysics3d/collision/ConvexMesh.h>
+#include <reactphysics3d/containers/Pair.h>
+#include <reactphysics3d/containers/Set.h>
+#include <reactphysics3d/containers/containers_common.h>
 #include <reactphysics3d/memory/MemoryManager.h>
 #include <reactphysics3d/collision/PolygonVertexArray.h>
 #include <reactphysics3d/utils/DefaultLogger.h>
@@ -61,14 +64,20 @@ bool ConvexMesh::init(const PolygonVertexArray& polygonVertexArray, std::vector<
     // Copy the vertices from the PolygonVertexArray into the mesh
     isValid &= copyVertices(polygonVertexArray, errors);
 
-    // Create the half-edge structure of the mesh
-    isValid &= createHalfEdgeStructure(polygonVertexArray, errors);
+    if (isValid) {
+        // Create the half-edge structure of the mesh
+        isValid &= createHalfEdgeStructure(polygonVertexArray, errors);
+    }
 
-    // Compute the faces normals
-    isValid &= computeFacesNormals(errors);
+    if (isValid) {
+        // Compute the faces normals
+        isValid &= computeFacesNormals(errors);
+    }
 
-    // Compute the volume of the mesh
-    computeVolume();
+    if (isValid) {
+        // Compute the volume of the mesh
+        computeVolume();
+    }
 
    return isValid;
 }
@@ -128,6 +137,13 @@ bool ConvexMesh::createHalfEdgeStructure(const PolygonVertexArray& polygonVertex
 
     // For each polygon face of the mesh
     const uint32 nbFaces = polygonVertexArray.getNbFaces();
+    if (nbFaces < 4) {
+        errors.push_back(Message("The mesh must have at least four faces"));
+        return false;
+    }
+
+    using VerticesPair = HalfEdgeStructure::VerticesPair;
+    Set<VerticesPair> directedEdges(mMemoryAllocator);
     for (uint32 f=0; f < nbFaces; f++) {
 
         // Get the polygon face
@@ -137,7 +153,12 @@ bool ConvexMesh::createHalfEdgeStructure(const PolygonVertexArray& polygonVertex
 
         // For each vertex of the face
         for (uint32 v=0; v < face->nbVertices; v++) {
-            faceVertices.add(polygonVertexArray.getVertexIndexInFace(f, v));
+            const uint32 vertexIndex = polygonVertexArray.getVertexIndexInFace(f, v);
+            if (vertexIndex >= nbVertices) {
+                errors.push_back(Message(std::string("Face " + std::to_string(f) + " has an out-of-bounds vertex index")));
+                isValid = false;
+            }
+            faceVertices.add(vertexIndex);
         }
 
         nbEdges += face->nbVertices;
@@ -153,15 +174,37 @@ bool ConvexMesh::createHalfEdgeStructure(const PolygonVertexArray& polygonVertex
             RP3D_LOG("PhysicsCommon", Logger::Level::Error, Logger::Category::PhysicCommon,
                      "Error when creating a ConvexMesh: Mesh has a face with less than three vertices.",  __FILE__, __LINE__);
         }
+        else {
+            for (uint32 v = 0; v < faceVertices.size(); v++) {
+                const uint32 v1 = faceVertices[v];
+                const uint32 v2 = faceVertices[(v + 1) % faceVertices.size()];
+                if (v1 == v2 || !directedEdges.add(VerticesPair(v1, v2))) {
+                    errors.push_back(Message(std::string("Face " + std::to_string(f) + " contains a degenerate or duplicate half-edge")));
+                    isValid = false;
+                }
+            }
+        }
 
         // Addd the face into the half-edge structure
         mHalfEdgeStructure.addFace(faceVertices);
     }
 
+    for (auto it = directedEdges.begin(); it != directedEdges.end(); ++it) {
+        const VerticesPair& edge = *it;
+        if (!directedEdges.contains(VerticesPair(edge.second, edge.first))) {
+            errors.push_back(Message("Convex Mesh is not closed or has inconsistent face winding"));
+            isValid = false;
+            break;
+        }
+    }
+
+    if (nbEdges % 2 != 0) {
+        isValid = false;
+    }
     nbEdges /= 2;
 
     // If the mesh is not valid (check Euler formula V + F - E = 2) (has duplicated vertices)
-    if (2 + nbEdges - polygonVertexArray.getNbFaces() != polygonVertexArray.getNbVertices()) {
+    if (2 + nbEdges != polygonVertexArray.getNbFaces() + polygonVertexArray.getNbVertices()) {
 
         RP3D_LOG("PhysicsCommon", Logger::Level::Error, Logger::Category::PhysicCommon,
                  "Error when creating a ConvexMesh: input PolygonVertexArray is not valid. Mesh with duplicated vertices is not supported.",  __FILE__, __LINE__);
@@ -172,11 +215,11 @@ bool ConvexMesh::createHalfEdgeStructure(const PolygonVertexArray& polygonVertex
         isValid = false;
     }
 
-    //if (isValid) {
+    if (isValid) {
 
         // Initialize the half-edge structure
         mHalfEdgeStructure.computeHalfEdges();
-    //}
+    }
 
     return isValid;
 }

@@ -98,7 +98,7 @@ void SingleFrameAllocator::release(void* pointer, size_t size) {
 
     // If allocated memory is not within the single frame allocation range
     char* p = static_cast<char*>(pointer);
-    if (p < mMemoryBufferStart || p > mMemoryBufferStart + mTotalSizeBytes) {
+    if (p < mMemoryBufferStart || p >= mMemoryBufferStart + mTotalSizeBytes) {
 
         // Use default deallocation
         mBaseAllocator.release(pointer, size);

@@ -353,7 +353,7 @@ bool HeightField::raycastTriangle(const Ray& ray, const Vector3& p1, const Vecto
         raycastInfo.hitFraction = triangleRaycastInfo.hitFraction;
         raycastInfo.worldPoint = triangleRaycastInfo.worldPoint;
         raycastInfo.worldNormal = triangleRaycastInfo.worldNormal;
-        raycastInfo.triangleIndex = -1;
+        raycastInfo.triangleIndex = static_cast<int>(shapeId);
 
         smallestHitFraction = triangleRaycastInfo.hitFraction;
 
@@ -387,7 +387,7 @@ bool HeightField::computeEnteringRayGridCoordinates(const Ray& ray, int32& i, in
         j = clamp(int(outHitGridPoint.z / stepJ), 0, nbCellsJ - 1);
 
         assert(i >= 0 && i < nbCellsI);
-        assert(i >= 0 && j < nbCellsJ);
+        assert(j >= 0 && j < nbCellsJ);
 
         return true;
     }
