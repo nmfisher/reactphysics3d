@@ -116,10 +116,10 @@ jobs:
             name: "Windows / MSVC (Debug, Single Precision)",
             os: windows-latest,
             build_type: "Debug",
-            cc: "cl",
-            cxx: "cl",
+            cc: "",
+            cxx: "",
             cxx_flags: "",
-            generators: "Visual Studio 17 2022",
+            generators: "",
             double_precision: false,
             coverage: false,
           }
@@ -127,10 +127,10 @@ jobs:
             name: "Windows / MSVC (Release, Single Precision)",
             os: windows-latest,
             build_type: "Release",
-            cc: "cl",
-            cxx: "cl",
+            cc: "",
+            cxx: "",
             cxx_flags: "",
-            generators: "Visual Studio 17 2022",
+            generators: "",
             double_precision: false,
             coverage: false,
           }
@@ -193,7 +193,7 @@ jobs:
 
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Print env
         run: |
@@ -230,7 +230,16 @@ jobs:
           CC: ${{ matrix.config.cc }}
           CXX: ${{ matrix.config.cxx }}
         run: |
+          if [[ -z "${CC}" ]]; then unset CC CXX; fi
           mkdir build
+          GEN_ARGS=()
+          if [[ -n "${{ matrix.config.generators }}" ]]; then
+            GEN_ARGS=(-G "${{ matrix.config.generators }}")
+          fi
+          INSTALL_ARGS=()
+          if [[ "${{ matrix.config.os }}" == windows* ]]; then
+            INSTALL_ARGS=(-DCMAKE_INSTALL_PREFIX="${PWD}/install")
+          fi
           cmake \
             -S . \
             -B build \
@@ -240,7 +249,8 @@ jobs:
             -DCODE_COVERAGE_VERBOSE=True \
             -DRP3D_COMPILE_TESTS=True \
             -DCMAKE_CXX_FLAGS="${{ matrix.config.cxx_flags }}" \
-            -G "${{ matrix.config.generators }}" \
+            "${INSTALL_ARGS[@]}" \
+            "${GEN_ARGS[@]}"
 
       - name: Build
         shell: bash
@@ -273,18 +283,24 @@ jobs:
           CC: ${{ matrix.config.cc }}
           CXX: ${{ matrix.config.cxx }}
         run: |
+          if [[ -z "${CC}" ]]; then unset CC CXX; fi
           mkdir build_hello_world
-          LINKER_FLAGS=""
+          EXTRA_ARGS=()
           if [[ "${{ matrix.config.os }}" == ubuntu* ]]; then
-            LINKER_FLAGS="-DCMAKE_EXE_LINKER_FLAGS=-no-pie"
+            EXTRA_ARGS+=(-DCMAKE_EXE_LINKER_FLAGS=-no-pie)
+          fi
+          if [[ "${{ matrix.config.os }}" == windows* ]]; then
+            EXTRA_ARGS+=(-DCMAKE_PREFIX_PATH="${PWD}/install")
+          fi
+          if [[ -n "${{ matrix.config.generators }}" ]]; then
+            EXTRA_ARGS+=(-G "${{ matrix.config.generators }}")
           fi
           cmake \
             -S helloworld \
             -B build_hello_world \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }} \
-            ${LINKER_FLAGS} \
             -DCMAKE_CXX_FLAGS="${{ matrix.config.cxx_flags }}" \
-            -G "${{ matrix.config.generators }}"
+            "${EXTRA_ARGS[@]}"
           cmake --build build_hello_world/ --config ${{ matrix.config.build_type }}
 
       - name: Run Hello World (Linux / MacOS / Windows MinGW)

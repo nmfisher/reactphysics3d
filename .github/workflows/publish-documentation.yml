@@ -39,6 +39,9 @@ jobs:
         run: cmake --build build/ 
 
       - name: Publish to FTP of website
+        if: env.FTP_USERNAME != ''
+        env:
+          FTP_USERNAME: ${{ secrets.ftp_username }}
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ftp.cluster010.ovh.net

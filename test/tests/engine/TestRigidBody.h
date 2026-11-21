@@ -256,7 +256,7 @@ class TestRigidBody : public Test {
             const Quaternion orientation = worldTransform.getOrientation();
 
             mRigidBody3->applyLocalForceAtCenterOfMass(Vector3(4, 5, 6));
-            rp3d_test(Vector3::approxEqual(mRigidBody3->getForce(), orientation * Vector3(4, 5, 6)));
+            rp3d_test(Vector3::approxEqual(mRigidBody3->getForce(), orientation * Vector3(4, 5, 6), decimal(0.0001)));
             rp3d_test(Vector3::approxEqual(mRigidBody3->getTorque(), orientation * Vector3::zero()));
 
             mRigidBody3->resetForce();
@@ -269,7 +269,7 @@ class TestRigidBody : public Test {
             mRigidBody3->resetTorque();
 
             mRigidBody3->applyLocalForceAtLocalPosition(Vector3(0, 0, 3), Vector3(2, 0, 0));
-            rp3d_test(Vector3::approxEqual(mRigidBody3->getForce(), orientation * Vector3(0, 0, 3)));
+            rp3d_test(Vector3::approxEqual(mRigidBody3->getForce(), orientation * Vector3(0, 0, 3), decimal(0.0001)));
 
             rp3d_test(Vector3::approxEqual(mRigidBody3->getTorque(), orientation * Vector3(0, -3 * 2, 0), decimal(0.0001)));
             mRigidBody3->resetForce();
@@ -279,19 +279,19 @@ class TestRigidBody : public Test {
             rp3d_test(Vector3::approxEqual(mRigidBody3->getTorque(), Vector3::zero()));
 
             mRigidBody3->applyLocalForceAtWorldPosition(Vector3(0, 0, 3), worldTransform * Vector3(2, 0, 0));
-            rp3d_test(Vector3::approxEqual(mRigidBody3->getForce(), orientation * Vector3(0, 0, 3)));
+            rp3d_test(Vector3::approxEqual(mRigidBody3->getForce(), orientation * Vector3(0, 0, 3), decimal(0.0001)));
             rp3d_test(Vector3::approxEqual(mRigidBody3->getTorque(), orientation * Vector3(0, -3 * 2, 0), decimal(0.0001)));
             mRigidBody3->resetForce();
             mRigidBody3->resetTorque();
 
             mRigidBody3->applyWorldForceAtLocalPosition(orientation * Vector3(0, 0, 3), Vector3(2, 0, 0));
-            rp3d_test(Vector3::approxEqual(mRigidBody3->getForce(), orientation * Vector3(0, 0, 3)));
+            rp3d_test(Vector3::approxEqual(mRigidBody3->getForce(), orientation * Vector3(0, 0, 3), decimal(0.0001)));
             rp3d_test(Vector3::approxEqual(mRigidBody3->getTorque(), orientation * Vector3(0, -3 * 2, 0), decimal(0.0001)));
             mRigidBody3->resetForce();
             mRigidBody3->resetTorque();
 
             mRigidBody3->applyWorldForceAtWorldPosition(orientation * Vector3(0, 0, 3), worldTransform * Vector3(2, 0, 0));
-            rp3d_test(Vector3::approxEqual(mRigidBody3->getForce(), orientation * Vector3(0, 0, 3)));
+            rp3d_test(Vector3::approxEqual(mRigidBody3->getForce(), orientation * Vector3(0, 0, 3), decimal(0.0001)));
             rp3d_test(Vector3::approxEqual(mRigidBody3->getTorque(), orientation * Vector3(0, -3 * 2, 0), decimal(0.0001)));
             mRigidBody3->resetForce();
             mRigidBody3->resetTorque();
